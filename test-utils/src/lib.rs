@@ -159,31 +159,26 @@ pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-    let temp_dir = std::env::temp_dir().join("rasterix_test_temp");
-    fs::create_dir_all(&temp_dir).expect("Failed to create temp dir");
-
-    // Use combination of process ID, timestamp, thread ID hash, and counter for uniqueness
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
     let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
 
-    // Hash the thread ID to get a numeric value
     let thread_id = std::thread::current().id();
     let mut hasher = DefaultHasher::new();
     thread_id.hash(&mut hasher);
     let thread_hash = hasher.finish();
 
     let filename = format!(
-        "test_{}_{}_{:x}_{}.{}",
+        "rasterix_test_{}_{}_{:x}_{}.{}",
         std::process::id(),
         counter,
         thread_hash,
         timestamp,
         extension
     );
-    let path = temp_dir.join(filename);
+    let path = std::env::temp_dir().join(filename);
 
     let mut file = fs::File::create(&path).expect("Failed to create temp file");
     file.write_all(content.as_bytes()).expect("Failed to write temp file");
@@ -191,11 +186,15 @@ pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
     path
 }
 
-/// Cleans up temporary test files.
+/// Cleans up temporary test files created by the current process.
 pub fn cleanup_temp_files() {
-    let temp_dir = std::env::temp_dir().join("rasterix_test_temp");
-    if temp_dir.exists() {
-        fs::remove_dir_all(temp_dir).ok();
+    let prefix = format!("rasterix_test_{}_", std::process::id());
+    if let Ok(entries) = fs::read_dir(std::env::temp_dir()) {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().starts_with(&prefix) {
+                fs::remove_file(entry.path()).ok();
+            }
+        }
     }
 }
 
