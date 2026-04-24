@@ -22,3 +22,6 @@ target
 
 # generated files
 /generated/
+
+# Cargo build artifacts
+Cargo.lock
