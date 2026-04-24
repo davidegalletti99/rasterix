@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 description = "Shared test utilities for rasterix workspace"
+repository = "https://github.com/davidegalletti99/rasterix"
+homepage = "https://github.com/davidegalletti99/rasterix"
 publish = false
 
 [dependencies]
