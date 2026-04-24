@@ -159,7 +159,7 @@ pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-    let temp_dir = workspace_root().join("target").join("test_temp");
+    let temp_dir = std::env::temp_dir().join("rasterix_test_temp");
     fs::create_dir_all(&temp_dir).expect("Failed to create temp dir");
 
     // Use combination of process ID, timestamp, thread ID hash, and counter for uniqueness
@@ -193,7 +193,7 @@ pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
 
 /// Cleans up temporary test files.
 pub fn cleanup_temp_files() {
-    let temp_dir = workspace_root().join("target").join("test_temp");
+    let temp_dir = std::env::temp_dir().join("rasterix_test_temp");
     if temp_dir.exists() {
         fs::remove_dir_all(temp_dir).ok();
     }
