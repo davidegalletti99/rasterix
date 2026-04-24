@@ -43,16 +43,21 @@ jobs:
         run: |
           publish_if_needed() {
             local crate=$1
-            local dir=$2
-            local version=$(grep '^version' "$dir/Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
-            local status=$(curl -s -o /dev/null -w "%{http_code}" "https://crates.io/api/v1/crates/$crate/$version")
-            if [ "$status" = "200" ]; then
-              echo "$crate $version already published, skipping"
+            local output
+            output=$(cargo publish -p "$crate" --verbose 2>&1)
+            local exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              if echo "$output" | grep -q "already exists"; then
+                echo "$crate already published, skipping"
+              else
+                echo "$output"
+                exit $exit_code
+              fi
             else
-              cargo publish -p "$crate" --verbose
+              echo "$output"
             fi
           }
 
-          publish_if_needed rasterix-core rasterix-core
-          publish_if_needed rasterix-codegen rasterix-codegen
-          publish_if_needed rasterix rasterix
+          publish_if_needed rasterix-core
+          publish_if_needed rasterix-codegen
+          publish_if_needed rasterix
