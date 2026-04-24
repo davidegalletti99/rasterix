@@ -1,5 +1,16 @@
 use std::io::{self, Write};
 
+/// Maps an ASCII byte to its ICAO 6-bit code (ICAO Annex 10, Vol III, Ch 3).
+/// Space/unknown → 0, A–Z → 1–26, 0–9 → 48–57.
+fn ascii_to_icao6(c: u8) -> u8 {
+    match c {
+        b'A'..=b'Z' => c - b'A' + 1,
+        b'a'..=b'z' => c - b'a' + 1,
+        b'0'..=b'9' => c - b'0' + 48,
+        _ => 0,
+    }
+}
+
 /// Writes individual bits to a byte-oriented [`Write`] sink.
 ///
 /// Bits are accumulated MSB-first into an internal byte buffer and flushed to
@@ -60,16 +71,24 @@ impl<W: Write> BitWriter<W> {
         Ok(())
     }
 
-    /// Writes a fixed-length string field to the stream.
+    /// Writes a fixed-length ASTERIX string field using ICAO 6-bit encoding.
     ///
-    /// Writes exactly `byte_len` bytes: the bytes of `s` followed by space
-    /// padding if `s` is shorter than `byte_len`. If `s` is longer, it is
-    /// truncated. This is used for ASTERIX string fields such as callsigns.
+    /// Writes exactly `byte_len * 8` bits total, encoding each character as a
+    /// 6-bit ICAO code. The field holds `byte_len * 8 / 6` characters; `s` is
+    /// space-padded (ICAO code 0) if shorter, or truncated if longer. Any
+    /// leftover bits (when `byte_len * 8` is not divisible by 6) are written
+    /// as zeros.
     pub fn write_string(&mut self, s: &str, byte_len: usize) -> io::Result<()> {
+        let total_bits = byte_len * 8;
+        let char_count = total_bits / 6;
+        let remainder_bits = total_bits % 6;
         let bytes = s.as_bytes();
-        for i in 0..byte_len {
-            let byte = if i < bytes.len() { bytes[i] } else { b' ' };
-            self.write_bits(byte as u64, 8)?;
+        for i in 0..char_count {
+            let code = if i < bytes.len() { ascii_to_icao6(bytes[i]) } else { 0 };
+            self.write_bits(code as u64, 6)?;
+        }
+        if remainder_bits > 0 {
+            self.write_bits(0, remainder_bits)?;
         }
         Ok(())
     }
@@ -281,29 +300,36 @@ mod tests {
 
     #[test]
     fn write_string_basic() {
+        // 6 bytes = 48 bits = 8 ICAO chars; "ABC" padded to 8 with spaces (code 0)
+        // A=1=000001, B=2=000010, C=3=000011, SP=0 (×5)
+        // 000001|000010|000011|000000|000000|000000|000000|000000
+        // → [0x04, 0x20, 0xC0, 0x00, 0x00, 0x00]
         let mut buffer = Vec::new();
         let mut writer = BitWriter::new(&mut buffer);
-
-        writer.write_string("ABC", 5).unwrap();
-        assert_eq!(buffer, vec![0x41, 0x42, 0x43, 0x20, 0x20]);
+        writer.write_string("ABC", 6).unwrap();
+        assert_eq!(buffer, vec![0x04, 0x20, 0xC0, 0x00, 0x00, 0x00]);
     }
 
     #[test]
-    fn write_string_exact_length() {
+    fn write_string_padded() {
+        // 3 bytes = 24 bits = 4 ICAO chars; "AB" padded to 4 with spaces (code 0)
+        // A=1=000001, B=2=000010, SP=0 (×2)
+        // 000001|000010|000000|000000 → [0x04, 0x20, 0x00]
         let mut buffer = Vec::new();
         let mut writer = BitWriter::new(&mut buffer);
-
-        writer.write_string("AB", 2).unwrap();
-        assert_eq!(buffer, vec![0x41, 0x42]);
+        writer.write_string("AB", 3).unwrap();
+        assert_eq!(buffer, vec![0x04, 0x20, 0x00]);
     }
 
     #[test]
     fn write_string_truncated() {
+        // 3 bytes = 4 ICAO chars; "ABCDE" truncated to first 4 chars "ABCD"
+        // A=1=000001, B=2=000010, C=3=000011, D=4=000100
+        // 000001|000010|000011|000100 → [0x04, 0x20, 0xC4]
         let mut buffer = Vec::new();
         let mut writer = BitWriter::new(&mut buffer);
-
         writer.write_string("ABCDE", 3).unwrap();
-        assert_eq!(buffer, vec![0x41, 0x42, 0x43]);
+        assert_eq!(buffer, vec![0x04, 0x20, 0xC4]);
     }
 
     #[test]
@@ -314,12 +340,12 @@ mod tests {
         let mut buffer = Vec::new();
         {
             let mut writer = BitWriter::new(&mut buffer);
-            writer.write_string("TEST", 8).unwrap();
+            writer.write_string("TEST01", 6).unwrap();
         }
 
         let mut reader = BitReader::new(Cursor::new(&buffer));
-        let s = reader.read_string(8).unwrap();
-        assert_eq!(s, "TEST");
+        let s = reader.read_string(6).unwrap();
+        assert_eq!(s, "TEST01");
     }
 
     #[test]
