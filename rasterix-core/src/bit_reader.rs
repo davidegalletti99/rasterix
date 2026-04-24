@@ -1,5 +1,16 @@
 use std::io::{self, Read};
 
+/// Maps an ICAO 6-bit code back to an ASCII byte (ICAO Annex 10, Vol III, Ch 3).
+/// 0 → space, 1–26 → A–Z, 48–57 → 0–9, anything else → space.
+fn icao6_to_ascii(code: u8) -> u8 {
+    match code {
+        0 => b' ',
+        1..=26 => b'A' + code - 1,
+        48..=57 => b'0' + code - 48,
+        _ => b' ',
+    }
+}
+
 /// Reads individual bits from a byte-oriented [`Read`] source.
 ///
 /// Bits are consumed MSB-first within each byte.  New bytes are fetched from
@@ -52,18 +63,25 @@ impl<R: Read> BitReader<R> {
         Ok(value)
     }
 
-    /// Reads a fixed-length string field from the stream.
+    /// Reads a fixed-length ASTERIX string field using ICAO 6-bit encoding.
     ///
-    /// Reads `byte_len` bytes, interprets them as ASCII/UTF-8, and trims
-    /// trailing spaces and null bytes. This is used for ASTERIX string fields
-    /// such as callsigns and target identifications.
+    /// Consumes `byte_len * 8` bits total, decoding each 6-bit ICAO code into
+    /// an ASCII character. The field holds `byte_len * 8 / 6` characters; any
+    /// leftover bits are consumed and discarded. Trailing spaces are trimmed.
     pub fn read_string(&mut self, byte_len: usize) -> io::Result<String> {
-        let mut bytes = vec![0u8; byte_len];
-        for byte in bytes.iter_mut() {
-            *byte = self.read_bits(8)? as u8;
+        let total_bits = byte_len * 8;
+        let char_count = total_bits / 6;
+        let remainder_bits = total_bits % 6;
+        let mut chars = Vec::with_capacity(char_count);
+        for _ in 0..char_count {
+            let code = self.read_bits(6)? as u8;
+            chars.push(icao6_to_ascii(code) as char);
         }
-        let s = String::from_utf8_lossy(&bytes);
-        Ok(s.trim_end_matches(|c: char| c == ' ' || c == '\0').to_string())
+        if remainder_bits > 0 {
+            self.read_bits(remainder_bits)?;
+        }
+        let s: String = chars.into_iter().collect();
+        Ok(s.trim_end_matches(' ').to_string())
     }
 
     /// Returns true if the reader is at a byte boundary (no partial byte buffered).
@@ -197,30 +215,35 @@ mod tests {
 
     #[test]
     fn read_string_basic() {
-        // "ABC" as bytes, followed by spaces
-        let data = vec![0x41, 0x42, 0x43, 0x20, 0x20];
+        // ICAO 6-bit encoding of "ABC" in 6 bytes (8 chars, 5 trailing spaces):
+        // A=1=000001, B=2=000010, C=3=000011, SP=0 (×5)
+        // [0x04, 0x20, 0xC0, 0x00, 0x00, 0x00]
+        let data = vec![0x04, 0x20, 0xC0, 0x00, 0x00, 0x00];
         let mut reader = BitReader::new(Cursor::new(data));
 
-        let s = reader.read_string(5).unwrap();
+        let s = reader.read_string(6).unwrap();
         assert_eq!(s, "ABC");
     }
 
     #[test]
-    fn read_string_no_padding() {
-        let data = vec![0x41, 0x42, 0x43]; // "ABC"
+    fn read_string_trailing_spaces_trimmed() {
+        // ICAO 6-bit "AB" in 3 bytes (4 chars, 2 trailing spaces):
+        // A=1=000001, B=2=000010, SP=0, SP=0 → [0x04, 0x20, 0x00]
+        let data = vec![0x04, 0x20, 0x00];
         let mut reader = BitReader::new(Cursor::new(data));
 
         let s = reader.read_string(3).unwrap();
-        assert_eq!(s, "ABC");
+        assert_eq!(s, "AB");
     }
 
     #[test]
-    fn read_string_with_null_padding() {
-        let data = vec![0x41, 0x42, 0x00, 0x00]; // "AB\0\0"
+    fn read_string_all_spaces() {
+        // All-zero bytes → all ICAO space codes → empty string after trim
+        let data = vec![0x00, 0x00, 0x00];
         let mut reader = BitReader::new(Cursor::new(data));
 
-        let s = reader.read_string(4).unwrap();
-        assert_eq!(s, "AB");
+        let s = reader.read_string(3).unwrap();
+        assert_eq!(s, "");
     }
 
     #[test]
