@@ -5,6 +5,9 @@ on:
     tags:
       - "v*.*.*"   # triggers on tags like "v1.0.0"
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -26,6 +29,13 @@ jobs:
 
       - name: Run tests
         run: cargo test --all
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
 
       - name: Publish to crates.io
         env:
