@@ -161,12 +161,16 @@ pub fn generate_extended_encode(
 }
 
 /// Generates encode implementation for a Repetitive item.
+///
+/// Wire format: [counter: counter_bytes bytes][element 0]...[element N-1]
 pub fn generate_repetitive_encode(
     name: &Ident,
+    counter_bytes: usize,
     element_type_name: &Ident,
     encode_ops: &[EncodeOp],
 ) -> TokenStream {
     let element_encodes: Vec<_> = encode_ops.iter().map(emit_encode_op).collect();
+    let counter_bits = counter_bytes * 8;
 
     quote! {
         impl #element_type_name {
@@ -184,6 +188,8 @@ pub fn generate_repetitive_encode(
                 &self,
                 writer: &mut BitWriter<W>,
             ) -> Result<(), DecodeError> {
+                // Write the repetition counter
+                writer.write_bits(self.items.len() as u64, #counter_bits)?;
                 for item in &self.items {
                     item.encode(writer)?;
                 }
@@ -251,8 +257,8 @@ pub fn generate_compound_sub_encodes(
             LoweredSubItemKind::Extended { parts } => {
                 generate_extended_encode(&sub.struct_name, parts)
             }
-            LoweredSubItemKind::Repetitive { element_type_name, encode_ops, .. } => {
-                generate_repetitive_encode(&sub.struct_name, element_type_name, encode_ops)
+            LoweredSubItemKind::Repetitive { element_type_name, counter_bytes, encode_ops, .. } => {
+                generate_repetitive_encode(&sub.struct_name, *counter_bytes, element_type_name, encode_ops)
             }
         }
     }).collect();

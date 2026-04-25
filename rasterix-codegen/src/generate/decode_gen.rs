@@ -191,15 +191,18 @@ pub fn generate_extended_decode(
 }
 
 /// Generates decode implementation for a Repetitive item.
+///
+/// Wire format: [counter: counter_bytes bytes][element 0]...[element N-1]
 pub fn generate_repetitive_decode(
     name: &Ident,
-    count: usize,
+    counter_bytes: usize,
     element_type_name: &Ident,
     decode_ops: &[DecodeOp],
     fields: &[FieldDescriptor],
 ) -> TokenStream {
     let element_decodes: Vec<_> = decode_ops.iter().map(emit_decode_op).collect();
     let field_names: Vec<_> = fields.iter().map(|f| &f.name).collect();
+    let counter_bits = counter_bytes * 8;
 
     quote! {
         impl #element_type_name {
@@ -218,8 +221,10 @@ pub fn generate_repetitive_decode(
             fn decode<R: std::io::Read>(
                 reader: &mut BitReader<R>,
             ) -> Result<Self, DecodeError> {
-                let mut items = Vec::with_capacity(#count);
-                for _ in 0..#count {
+                // Read the repetition counter
+                let count = reader.read_bits(#counter_bits)? as usize;
+                let mut items = Vec::with_capacity(count);
+                for _ in 0..count {
                     items.push(#element_type_name::decode(reader)?);
                 }
 
@@ -283,8 +288,8 @@ pub fn generate_compound_sub_decodes(
             LoweredSubItemKind::Extended { parts } => {
                 generate_extended_decode(&sub.struct_name, parts)
             }
-            LoweredSubItemKind::Repetitive { element_type_name, count, decode_ops, fields, .. } => {
-                generate_repetitive_decode(&sub.struct_name, *count, element_type_name, decode_ops, fields)
+            LoweredSubItemKind::Repetitive { element_type_name, counter_bytes, decode_ops, fields, .. } => {
+                generate_repetitive_decode(&sub.struct_name, *counter_bytes, element_type_name, decode_ops, fields)
             }
         }
     }).collect();

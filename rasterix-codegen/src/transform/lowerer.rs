@@ -76,11 +76,11 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> LoweredItemKind {
             }).collect();
             LoweredItemKind::Extended { parts }
         }
-        IRLayout::Repetitive { bytes: _, count, elements } => {
+        IRLayout::Repetitive { bytes: _, counter_bytes, elements } => {
             let element_type_name = format_ident!("{}Element", parent_name);
             LoweredItemKind::Repetitive {
                 element_type_name,
-                count: *count,
+                counter_bytes: *counter_bytes,
                 fields: lower_fields(elements),
                 decode_ops: lower_element_ops_decode(elements),
                 encode_ops: lower_element_ops_encode(elements),
@@ -141,11 +141,11 @@ fn lower_sub_item_kind(parent_name: &Ident, layout: &IRLayout) -> LoweredSubItem
             }).collect();
             LoweredSubItemKind::Extended { parts }
         }
-        IRLayout::Repetitive { bytes: _, count, elements } => {
+        IRLayout::Repetitive { bytes: _, counter_bytes, elements } => {
             let element_type_name = format_ident!("{}Element", parent_name);
             LoweredSubItemKind::Repetitive {
                 element_type_name,
-                count: *count,
+                counter_bytes: *counter_bytes,
                 fields: lower_fields(elements),
                 decode_ops: lower_element_ops_decode(elements),
                 encode_ops: lower_element_ops_encode(elements),
