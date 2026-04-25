@@ -100,9 +100,9 @@ fn transform_repetitive_layout() {
     let ir = build_ir_from_fixture("valid", "repetitive_basic.xml");
 
     match &ir.category.items[0].layout {
-        IRLayout::Repetitive { bytes, count, elements } => {
+        IRLayout::Repetitive { bytes, counter_bytes, elements } => {
             assert!(*bytes > 0);
-            assert!(*count > 0);
+            assert!(*counter_bytes > 0);
             assert!(!elements.is_empty());
         }
         _ => panic!("Expected Repetitive layout"),
