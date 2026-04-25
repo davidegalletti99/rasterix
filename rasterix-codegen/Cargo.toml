@@ -1,6 +1,6 @@
 [package]
 name = "rasterix-codegen"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Rasterix code generation library for ASTERIX message encoding and decoding"
 license = "MIT"
