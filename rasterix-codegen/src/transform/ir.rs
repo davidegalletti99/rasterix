@@ -75,16 +75,16 @@ pub enum IRLayout {
         part_groups: Vec<IRPartGroup>,
     },
     
-    /// Repetitive item - a structure repeated N times.
-    /// 
-    /// Wire format: [repetition 0][repetition 1]...[repetition N-1]
+    /// Repetitive item — variable-length, prefixed by a counter.
+    ///
+    /// Wire format: [counter: counter_bytes bytes][repetition 0]...[repetition N-1]
     Repetitive {
         /// Size in bytes of a single repetition
         bytes: usize,
-        
-        /// Exact number of repetitions
-        count: usize,
-        
+
+        /// Number of bytes used to encode the repetition count (1 or 2)
+        counter_bytes: usize,
+
         /// Elements in a single repetition
         elements: Vec<IRElement>,
     },

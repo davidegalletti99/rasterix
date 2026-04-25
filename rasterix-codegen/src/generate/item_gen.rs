@@ -36,10 +36,10 @@ pub fn generate_item(item: &LoweredItem) -> TokenStream {
             (struct_def, decode_impl, encode_impl)
         }
 
-        LoweredItemKind::Repetitive { element_type_name, count, fields, decode_ops, encode_ops } => {
+        LoweredItemKind::Repetitive { element_type_name, counter_bytes, fields, decode_ops, encode_ops } => {
             let struct_def = generate_repetitive_struct(item_name, element_type_name, fields);
-            let decode_impl = generate_repetitive_decode(item_name, *count, element_type_name, decode_ops, fields);
-            let encode_impl = generate_repetitive_encode(item_name, element_type_name, encode_ops);
+            let decode_impl = generate_repetitive_decode(item_name, *counter_bytes, element_type_name, decode_ops, fields);
+            let encode_impl = generate_repetitive_encode(item_name, *counter_bytes, element_type_name, encode_ops);
             (struct_def, decode_impl, encode_impl)
         }
 

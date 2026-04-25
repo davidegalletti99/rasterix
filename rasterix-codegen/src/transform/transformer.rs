@@ -69,13 +69,12 @@ fn to_ir_item_structure(structure: ItemStructure) -> IRLayout {
         }
         
         ItemStructure::Repetitive(rep) => {
-            // Parse counter - for now only exact counts supported
-            let count = rep.counter.parse::<usize>()
+            let counter_bytes = rep.counter.parse::<usize>()
                 .expect("Counter must be a valid number");
-            
+
             IRLayout::Repetitive {
                 bytes: rep.bytes,
-                count,
+                counter_bytes,
                 elements: rep.elements.into_iter().map(to_ir_element).collect(),
             }
         }
@@ -126,12 +125,12 @@ fn to_ir_compoundable_item(item: CompoundableItem) -> IRLayout {
         }
         
         CompoundableItem::Repetitive(rep) => {
-            let count = rep.counter.parse::<usize>()
+            let counter_bytes = rep.counter.parse::<usize>()
                 .expect("Counter must be a valid number");
-            
+
             IRLayout::Repetitive {
                 bytes: rep.bytes,
-                count,
+                counter_bytes,
                 elements: rep.elements.into_iter().map(to_ir_element).collect(),
             }
         }
