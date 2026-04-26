@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote};
 
-use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredItemKind, LoweredPart, LoweredSubItem};
+use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredPart};
 
 /// Emits a single decode operation as a TokenStream.
 fn emit_decode_op(op: &DecodeOp) -> TokenStream {
@@ -234,68 +234,3 @@ pub fn generate_repetitive_decode(
     }
 }
 
-/// Generates decode implementation for a Compound item.
-pub fn generate_compound_decode(
-    name: &Ident,
-    sub_items: &[LoweredSubItem],
-) -> TokenStream {
-    let mut sub_decodes = Vec::new();
-    let mut field_names = Vec::new();
-
-    for sub in sub_items {
-        let sub_name = &sub.struct_name;
-        let field_name = &sub.field_name;
-        field_names.push(field_name);
-
-        let byte = sub.fspec_byte;
-        let bit = sub.fspec_bit;
-        sub_decodes.push(quote! {
-            let #field_name = if fspec.is_set(#byte, #bit) {
-                Some(#sub_name::decode(&mut reader)?)
-            } else {
-                None
-            };
-        });
-    }
-
-    quote! {
-        impl #name {
-            pub fn decode<R: std::io::Read>(
-                reader: &mut R,
-            ) -> Result<Self, DecodeError> {
-                let fspec = Fspec::read(reader)?;
-                let mut reader = BitReader::new(reader);
-
-                #(#sub_decodes)*
-
-                Ok(Self {
-                    #(#field_names),*
-                })
-            }
-        }
-    }
-}
-
-/// Generates decode implementations for all sub-items in a compound.
-pub fn generate_compound_sub_decodes(
-    sub_items: &[LoweredSubItem],
-) -> TokenStream {
-    let all_impls: Vec<_> = sub_items.iter().map(|sub| {
-        match &sub.kind {
-            LoweredItemKind::Simple { decode_ops, fields, .. } => {
-                generate_simple_decode(&sub.struct_name, decode_ops, fields)
-            }
-            LoweredItemKind::Extended { parts } => {
-                generate_extended_decode(&sub.struct_name, parts)
-            }
-            LoweredItemKind::Repetitive { element_type_name, counter_bytes, decode_ops, fields, .. } => {
-                generate_repetitive_decode(&sub.struct_name, *counter_bytes, element_type_name, decode_ops, fields)
-            }
-            LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
-        }
-    }).collect();
-
-    quote! {
-        #(#all_impls)*
-    }
-}

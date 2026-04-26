@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-use crate::transform::lower_ir::{FieldDescriptor, FieldType, LoweredItemKind, LoweredPart, LoweredSubItem};
+use crate::transform::lower_ir::{FieldDescriptor, FieldType, LoweredPart};
 
 /// Generates a struct field declaration from a pre-resolved field descriptor.
 fn generate_field(field: &FieldDescriptor) -> TokenStream {
@@ -78,44 +78,6 @@ pub fn generate_extended_structs(
     }
 }
 
-/// Generates structs for a compound item from lowered sub-items.
-pub fn generate_compound_structs(
-    name: &Ident,
-    sub_items: &[LoweredSubItem],
-) -> TokenStream {
-    let mut all_structs = Vec::new();
-    let mut main_fields = Vec::new();
-
-    for sub in sub_items {
-        let sub_struct = match &sub.kind {
-            LoweredItemKind::Simple { fields, .. } => {
-                generate_struct(&sub.struct_name, fields)
-            }
-            LoweredItemKind::Extended { parts } => {
-                generate_extended_structs(&sub.struct_name, parts)
-            }
-            LoweredItemKind::Repetitive { element_type_name, fields, .. } => {
-                generate_repetitive_struct(&sub.struct_name, element_type_name, fields)
-            }
-            LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
-        };
-
-        all_structs.push(sub_struct);
-
-        let field_name = &sub.field_name;
-        let sub_name = &sub.struct_name;
-        main_fields.push(quote! { pub #field_name: Option<#sub_name> });
-    }
-
-    quote! {
-        #(#all_structs)*
-
-        #[derive(Debug, Clone, PartialEq)]
-        pub struct #name {
-            #(#main_fields),*
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

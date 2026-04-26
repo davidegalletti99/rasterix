@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-use crate::transform::lower_ir::{EncodeOp, LoweredItemKind, LoweredPart, LoweredSubItem};
+use crate::transform::lower_ir::{EncodeOp, LoweredPart};
 
 /// Emits a single encode operation as a TokenStream.
 fn emit_encode_op(op: &EncodeOp) -> TokenStream {
@@ -199,72 +199,3 @@ pub fn generate_repetitive_encode(
     }
 }
 
-/// Generates encode implementation for a Compound item.
-pub fn generate_compound_encode(
-    name: &Ident,
-    sub_items: &[LoweredSubItem],
-) -> TokenStream {
-    let mut fspec_setup = Vec::new();
-    let mut sub_encodes = Vec::new();
-
-    for sub in sub_items {
-        let field_name = &sub.field_name;
-        let byte = sub.fspec_byte;
-        let bit = sub.fspec_bit;
-
-        fspec_setup.push(quote! {
-            if self.#field_name.is_some() {
-                fspec.set(#byte, #bit);
-            }
-        });
-
-        sub_encodes.push(quote! {
-            if let Some(ref sub_data) = self.#field_name {
-                sub_data.encode(&mut writer)?;
-            }
-        });
-    }
-
-    quote! {
-        impl #name {
-            pub fn encode<W: std::io::Write>(
-                &self,
-                writer: &mut W,
-            ) -> Result<(), DecodeError> {
-                let mut fspec = Fspec::new();
-                #(#fspec_setup)*
-                fspec.write(writer)?;
-
-                let mut writer = BitWriter::new(writer);
-                #(#sub_encodes)*
-
-                writer.flush()?;
-                Ok(())
-            }
-        }
-    }
-}
-
-/// Generates encode implementations for all sub-items in a compound.
-pub fn generate_compound_sub_encodes(
-    sub_items: &[LoweredSubItem],
-) -> TokenStream {
-    let all_impls: Vec<_> = sub_items.iter().map(|sub| {
-        match &sub.kind {
-            LoweredItemKind::Simple { encode_ops, .. } => {
-                generate_simple_encode(&sub.struct_name, encode_ops)
-            }
-            LoweredItemKind::Extended { parts } => {
-                generate_extended_encode(&sub.struct_name, parts)
-            }
-            LoweredItemKind::Repetitive { element_type_name, counter_bytes, encode_ops, .. } => {
-                generate_repetitive_encode(&sub.struct_name, *counter_bytes, element_type_name, encode_ops)
-            }
-            LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
-        }
-    }).collect();
-
-    quote! {
-        #(#all_impls)*
-    }
-}
