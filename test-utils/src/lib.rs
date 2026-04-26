@@ -135,13 +135,6 @@ pub fn assert_normalized_eq(generated: &str, expected: &str, fixture_name: &str)
     );
 }
 
-/// Returns the workspace root directory.
-fn workspace_root() -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // test-utils is directly under workspace root
-    manifest_dir.parent().unwrap().to_path_buf()
-}
-
 /// Creates a temporary test file and returns its path.
 ///
 /// Files are created in the workspace's `target/test_temp/` directory.

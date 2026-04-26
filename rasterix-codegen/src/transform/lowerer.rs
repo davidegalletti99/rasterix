@@ -165,58 +165,33 @@ fn lower_fields(elements: &[IRElement]) -> Vec<FieldDescriptor> {
 
 fn lower_field(element: &IRElement) -> Option<FieldDescriptor> {
     match element {
+        IRElement::EPB { content } => field_descriptor_for(content, true),
+        other => field_descriptor_for(other, false),
+    }
+}
+
+fn field_descriptor_for(element: &IRElement, optional: bool) -> Option<FieldDescriptor> {
+    match element {
         IRElement::Field { name, bits, is_string } => {
             let field_name = to_snake_case(name);
             if *is_string {
                 let byte_len = bits / 8;
-                Some(FieldDescriptor {
-                    name: field_name,
-                    type_tokens: FieldType::FixedString(byte_len),
-                })
+                let type_tokens = if optional { FieldType::OptionalFixedString(byte_len) } else { FieldType::FixedString(byte_len) };
+                Some(FieldDescriptor { name: field_name, type_tokens })
             } else {
                 let rust_type = format_ident!("{}", rust_type_for_bits(*bits));
-                Some(FieldDescriptor {
-                    name: field_name,
-                    type_tokens: FieldType::Primitive(rust_type),
-                })
+                let type_tokens = if optional { FieldType::OptionalPrimitive(rust_type) } else { FieldType::Primitive(rust_type) };
+                Some(FieldDescriptor { name: field_name, type_tokens })
             }
         }
-        IRElement::EPB { content } => match content.as_ref() {
-            IRElement::Field { name, bits, is_string } => {
-                let field_name = to_snake_case(name);
-                if *is_string {
-                    let byte_len = bits / 8;
-                    Some(FieldDescriptor {
-                        name: field_name,
-                        type_tokens: FieldType::OptionalFixedString(byte_len),
-                    })
-                } else {
-                    let rust_type = format_ident!("{}", rust_type_for_bits(*bits));
-                    Some(FieldDescriptor {
-                        name: field_name,
-                        type_tokens: FieldType::OptionalPrimitive(rust_type),
-                    })
-                }
-            }
-            IRElement::Enum { name, .. } => {
-                let field_name = to_snake_case(name);
-                let enum_type = to_pascal_case(name);
-                Some(FieldDescriptor {
-                    name: field_name,
-                    type_tokens: FieldType::OptionalEnum(enum_type),
-                })
-            }
-            _ => panic!("EPB can only contain Field or Enum"),
-        },
         IRElement::Enum { name, .. } => {
             let field_name = to_snake_case(name);
             let enum_type = to_pascal_case(name);
-            Some(FieldDescriptor {
-                name: field_name,
-                type_tokens: FieldType::Enum(enum_type),
-            })
+            let type_tokens = if optional { FieldType::OptionalEnum(enum_type) } else { FieldType::Enum(enum_type) };
+            Some(FieldDescriptor { name: field_name, type_tokens })
         }
         IRElement::Spare { .. } => None,
+        IRElement::EPB { .. } => panic!("Nested EPB not supported"),
     }
 }
 
@@ -236,56 +211,34 @@ fn lower_element_ops_decode(elements: &[IRElement]) -> Vec<DecodeOp> {
 }
 
 fn lower_element_decode(element: &IRElement) -> DecodeOp {
-    match element {
-        IRElement::Field { name, bits, is_string } => {
-            if *is_string {
-                DecodeOp::ReadString {
-                    name: to_snake_case(name),
-                    byte_len: bits / 8,
-                }
-            } else {
-                DecodeOp::ReadField {
-                    name: to_snake_case(name),
-                    bits: *bits,
-                    rust_type: format_ident!("{}", rust_type_for_bits(*bits)),
-                }
-            }
-        }
-        IRElement::EPB { content } 
-            => lower_epb_element_decode(content.as_ref()),
-        IRElement::Enum { name, bits, .. } 
-            => DecodeOp::ReadEnum {
-                name: to_snake_case(name),
-                bits: *bits,
-                enum_type: to_pascal_case(name),
-            },
-        IRElement::Spare { bits }
-            => DecodeOp::SkipSpare { bits: *bits },
-    }
+    lower_element_decode_inner(element, false)
 }
 
-fn lower_epb_element_decode(element: &IRElement) -> DecodeOp {
-    match element { 
+fn lower_element_decode_inner(element: &IRElement, is_epb: bool) -> DecodeOp {
+    match element {
         IRElement::Field { name, bits, is_string } => {
+            let name = to_snake_case(name);
             if *is_string {
-                DecodeOp::ReadEpbString {
-                    name: to_snake_case(name),
-                    byte_len: bits / 8,
-                }
+                let byte_len = bits / 8;
+                if is_epb { DecodeOp::ReadEpbString { name, byte_len } }
+                else { DecodeOp::ReadString { name, byte_len } }
             } else {
-                DecodeOp::ReadEpbField {
-                    name: to_snake_case(name),
-                    bits: *bits,
-                    rust_type: format_ident!("{}", rust_type_for_bits(*bits)),
-                }
+                let rust_type = format_ident!("{}", rust_type_for_bits(*bits));
+                if is_epb { DecodeOp::ReadEpbField { name, bits: *bits, rust_type } }
+                else { DecodeOp::ReadField { name, bits: *bits, rust_type } }
             }
         }
-        IRElement::Enum { name, bits, .. } => DecodeOp::ReadEpbEnum {
-            name: to_snake_case(name),
-            bits: *bits,
-            enum_type: to_pascal_case(name),
-        },
-        _ => panic!("EPB can only contain Field or Enum"),
+        IRElement::EPB { content } => lower_element_decode_inner(content, true),
+        IRElement::Enum { name, bits, .. } => {
+            let name = to_snake_case(name);
+            let enum_type = to_pascal_case(name.to_string().as_str());
+            if is_epb { DecodeOp::ReadEpbEnum { name, bits: *bits, enum_type } }
+            else { DecodeOp::ReadEnum { name, bits: *bits, enum_type } }
+        }
+        IRElement::Spare { bits } => {
+            assert!(!is_epb, "EPB can only contain Field or Enum");
+            DecodeOp::SkipSpare { bits: *bits }
+        }
     }
 }
 
@@ -305,49 +258,32 @@ fn lower_element_ops_encode(elements: &[IRElement]) -> Vec<EncodeOp> {
 }
 
 fn lower_element_encode(element: &IRElement) -> EncodeOp {
-    match element {
-        IRElement::Field { name, bits, is_string } => {
-            if *is_string {
-                EncodeOp::WriteString {
-                    name: to_snake_case(name),
-                    byte_len: bits / 8,
-                }
-            } else {
-                EncodeOp::WriteField {
-                    name: to_snake_case(name),
-                    bits: *bits,
-                }
-            }
-        }
-        IRElement::EPB { content } => lower_epb_element_encode(content.as_ref()),
-        IRElement::Enum { name, bits, .. } => EncodeOp::WriteEnum {
-            name: to_snake_case(name),
-            bits: *bits,
-        },
-        IRElement::Spare { bits } => EncodeOp::WriteSpare { bits: *bits },
-    }
+    lower_element_encode_inner(element, false)
 }
 
-fn lower_epb_element_encode(element: &IRElement) -> EncodeOp {
+fn lower_element_encode_inner(element: &IRElement, is_epb: bool) -> EncodeOp {
     match element {
         IRElement::Field { name, bits, is_string } => {
+            let name = to_snake_case(name);
             if *is_string {
-                EncodeOp::WriteEpbString {
-                    name: to_snake_case(name),
-                    byte_len: bits / 8,
-                }
+                let byte_len = bits / 8;
+                if is_epb { EncodeOp::WriteEpbString { name, byte_len } }
+                else { EncodeOp::WriteString { name, byte_len } }
             } else {
-                EncodeOp::WriteEpbField {
-                    name: to_snake_case(name),
-                    bits: *bits,
-                }
+                if is_epb { EncodeOp::WriteEpbField { name, bits: *bits } }
+                else { EncodeOp::WriteField { name, bits: *bits } }
             }
         }
-        IRElement::Enum { name, bits, .. } => EncodeOp::WriteEpbEnum {
-            name: to_snake_case(name),
-            bits: *bits,
-        },
-        _ => panic!("EPB can only contain Field or Enum"),
+        IRElement::EPB { content } => lower_element_encode_inner(content, true),
+        IRElement::Enum { name, bits, .. } => {
+            let name = to_snake_case(name);
+            if is_epb { EncodeOp::WriteEpbEnum { name, bits: *bits } }
+            else { EncodeOp::WriteEnum { name, bits: *bits } }
+        }
+        IRElement::Spare { bits } => {
+            assert!(!is_epb, "EPB can only contain Field or Enum");
+            EncodeOp::WriteSpare { bits: *bits }
+        }
     }
 }
 
