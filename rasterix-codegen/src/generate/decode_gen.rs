@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote};
 
-use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredPart, LoweredSubItem, LoweredSubItemKind};
+use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredItemKind, LoweredPart, LoweredSubItem};
 
 /// Emits a single decode operation as a TokenStream.
 fn emit_decode_op(op: &DecodeOp) -> TokenStream {
@@ -282,15 +282,16 @@ pub fn generate_compound_sub_decodes(
 ) -> TokenStream {
     let all_impls: Vec<_> = sub_items.iter().map(|sub| {
         match &sub.kind {
-            LoweredSubItemKind::Simple { decode_ops, fields, .. } => {
+            LoweredItemKind::Simple { decode_ops, fields, .. } => {
                 generate_simple_decode(&sub.struct_name, decode_ops, fields)
             }
-            LoweredSubItemKind::Extended { parts } => {
+            LoweredItemKind::Extended { parts } => {
                 generate_extended_decode(&sub.struct_name, parts)
             }
-            LoweredSubItemKind::Repetitive { element_type_name, counter_bytes, decode_ops, fields, .. } => {
+            LoweredItemKind::Repetitive { element_type_name, counter_bytes, decode_ops, fields, .. } => {
                 generate_repetitive_decode(&sub.struct_name, *counter_bytes, element_type_name, decode_ops, fields)
             }
+            LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
         }
     }).collect();
 

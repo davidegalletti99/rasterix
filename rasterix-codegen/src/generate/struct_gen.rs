@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-use crate::transform::lower_ir::{FieldDescriptor, FieldType, LoweredPart, LoweredSubItem, LoweredSubItemKind};
+use crate::transform::lower_ir::{FieldDescriptor, FieldType, LoweredItemKind, LoweredPart, LoweredSubItem};
 
 /// Generates a struct field declaration from a pre-resolved field descriptor.
 fn generate_field(field: &FieldDescriptor) -> TokenStream {
@@ -88,15 +88,16 @@ pub fn generate_compound_structs(
 
     for sub in sub_items {
         let sub_struct = match &sub.kind {
-            LoweredSubItemKind::Simple { fields, .. } => {
+            LoweredItemKind::Simple { fields, .. } => {
                 generate_struct(&sub.struct_name, fields)
             }
-            LoweredSubItemKind::Extended { parts } => {
+            LoweredItemKind::Extended { parts } => {
                 generate_extended_structs(&sub.struct_name, parts)
             }
-            LoweredSubItemKind::Repetitive { element_type_name, fields, .. } => {
+            LoweredItemKind::Repetitive { element_type_name, fields, .. } => {
                 generate_repetitive_struct(&sub.struct_name, element_type_name, fields)
             }
+            LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
         };
 
         all_structs.push(sub_struct);

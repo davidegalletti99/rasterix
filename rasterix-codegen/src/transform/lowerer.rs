@@ -88,10 +88,14 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> LoweredItemKind {
         }
         IRLayout::Compound { sub_items } => {
             let lowered_subs = sub_items.iter().map(|sub| {
+                assert!(
+                    !matches!(sub.layout, IRLayout::Compound { .. }),
+                    "Nested compounds are not supported"
+                );
                 let sub_name = format_ident!("{}Sub{}", parent_name, sub.index);
                 let (fspec_byte, fspec_bit) = frn_to_fspec_position(sub.index);
                 let enums = collect_and_lower_enums(&sub.layout);
-                let kind = lower_sub_item_kind(&sub_name, &sub.layout);
+                let kind = lower_layout(&sub_name, &sub.layout);
                 LoweredSubItem {
                     index: sub.index,
                     struct_name: sub_name,
@@ -103,56 +107,6 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> LoweredItemKind {
                 }
             }).collect();
             LoweredItemKind::Compound { sub_items: lowered_subs }
-        }
-    }
-}
-
-fn lower_sub_item_kind(parent_name: &Ident, layout: &IRLayout) -> LoweredSubItemKind {
-    match layout {
-        IRLayout::Fixed { bytes, elements } => {
-            LoweredSubItemKind::Simple {
-                is_explicit: false,
-                byte_size: *bytes,
-                fields: lower_fields(elements),
-                decode_ops: lower_decode_ops(elements, false),
-                encode_ops: lower_encode_ops(elements, false, *bytes),
-            }
-        }
-        IRLayout::Explicit { bytes, elements } => {
-            LoweredSubItemKind::Simple {
-                is_explicit: true,
-                byte_size: *bytes,
-                fields: lower_fields(elements),
-                decode_ops: lower_decode_ops(elements, true),
-                encode_ops: lower_encode_ops(elements, true, *bytes),
-            }
-        }
-        IRLayout::Extended { part_groups, .. } => {
-            let parts = part_groups.iter().map(|group| {
-                LoweredPart {
-                    index: group.index,
-                    struct_name: format_ident!("{}Part{}", parent_name, group.index),
-                    field_name: format_ident!("part{}", group.index),
-                    is_required: group.index == 0,
-                    fields: lower_fields(&group.elements),
-                    decode_ops: lower_element_ops_decode(&group.elements),
-                    encode_ops: lower_element_ops_encode(&group.elements),
-                }
-            }).collect();
-            LoweredSubItemKind::Extended { parts }
-        }
-        IRLayout::Repetitive { bytes: _, counter_bytes, elements } => {
-            let element_type_name = format_ident!("{}Element", parent_name);
-            LoweredSubItemKind::Repetitive {
-                element_type_name,
-                counter_bytes: *counter_bytes,
-                fields: lower_fields(elements),
-                decode_ops: lower_element_ops_decode(elements),
-                encode_ops: lower_element_ops_encode(elements),
-            }
-        }
-        IRLayout::Compound { .. } => {
-            panic!("Nested compounds not supported")
         }
     }
 }
