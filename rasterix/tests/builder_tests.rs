@@ -171,8 +171,8 @@ fn builder_handles_compound_item() {
 
     assert!(result.is_ok());
     let code = result.unwrap();
-    assert!(code.contains("Sub0"));
     assert!(code.contains("Sub1"));
+    assert!(code.contains("Sub2"));
 }
 
 #[test]

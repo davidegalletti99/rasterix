@@ -138,10 +138,10 @@ fn generate_compound_code() {
     let code = generate_from_fixture("valid", "compound_simple.xml");
 
     assert_code_contains(&code, &[
-        "Item100Sub0",
         "Item100Sub1",
-        "pub sub0 : Option",
+        "Item100Sub2",
         "pub sub1 : Option",
+        "pub sub2 : Option",
     ]);
 }
 

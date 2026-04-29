@@ -305,7 +305,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 10,
-                    frn: 0,
+                    frn: 1,
                     layout: IRLayout::Fixed {
                         bytes: 2,
                         elements: vec![
@@ -345,7 +345,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 20,
-                    frn: 1,
+                    frn: 2,
                     layout: IRLayout::Explicit {
                         bytes: 2,
                         elements: vec![
@@ -376,7 +376,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 20,
-                    frn: 1,
+                    frn: 2,
                     layout: IRLayout::Fixed {
                         bytes: 1,
                         elements: vec![
@@ -410,7 +410,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 30,
-                    frn: 2,
+                    frn: 3,
                     layout: IRLayout::Fixed {
                         bytes: 2,
                         elements: vec![
@@ -447,7 +447,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 20,
-                    frn: 1,
+                    frn: 2,
                     layout: IRLayout::Fixed {
                         bytes: 1,
                         elements: vec![
@@ -482,9 +482,9 @@ mod tests {
             category: IRCategory {
                 id: 48,
                 items: vec![
-                    IRItem { id: 10, frn: 0, layout: IRLayout::Fixed { bytes: 2, elements: vec![] } },
-                    IRItem { id: 20, frn: 1, layout: IRLayout::Fixed { bytes: 1, elements: vec![] } },
-                    IRItem { id: 140, frn: 7, layout: IRLayout::Fixed { bytes: 2, elements: vec![] } },
+                    IRItem { id: 10, frn: 1, layout: IRLayout::Fixed { bytes: 2, elements: vec![] } },
+                    IRItem { id: 20, frn: 2, layout: IRLayout::Fixed { bytes: 1, elements: vec![] } },
+                    IRItem { id: 140, frn: 8, layout: IRLayout::Fixed { bytes: 2, elements: vec![] } },
                 ],
             },
         };
@@ -508,7 +508,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 20,
-                    frn: 1,
+                    frn: 2,
                     layout: IRLayout::Extended {
                         bytes: 2,
                         part_groups: vec![
@@ -555,11 +555,11 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 120,
-                    frn: 5,
+                    frn: 6,
                     layout: IRLayout::Compound {
                         sub_items: vec![
                             IRSubItem {
-                                index: 0,
+                                index: 1,
                                 layout: IRLayout::Fixed {
                                     bytes: 2,
                                     elements: vec![
@@ -568,7 +568,7 @@ mod tests {
                                 },
                             },
                             IRSubItem {
-                                index: 1,
+                                index: 2,
                                 layout: IRLayout::Fixed {
                                     bytes: 1,
                                     elements: vec![
@@ -588,7 +588,8 @@ mod tests {
         match &item.kind {
             LoweredItemKind::Compound { sub_items } => {
                 assert_eq!(sub_items.len(), 2);
-                assert_eq!(sub_items[0].struct_name, format_ident!("Item120Sub0"));
+                assert_eq!(sub_items[0].struct_name, format_ident!("Item120Sub1"));
+                assert_eq!(sub_items[0].field_name, format_ident!("sub1"));
                 assert_eq!(sub_items[0].fspec_byte, 0);
                 assert_eq!(sub_items[0].fspec_bit, 0);
             }
@@ -603,7 +604,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 240,
-                    frn: 3,
+                    frn: 4,
                     layout: IRLayout::Fixed {
                         bytes: 6,
                         elements: vec![
@@ -636,7 +637,7 @@ mod tests {
                 id: 48,
                 items: vec![IRItem {
                     id: 30,
-                    frn: 2,
+                    frn: 3,
                     layout: IRLayout::Fixed {
                         bytes: 7,
                         elements: vec![

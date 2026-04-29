@@ -83,14 +83,14 @@ fn to_ir_item_structure(structure: ItemStructure) -> IRLayout {
             let sub_items = comp.items
                 .into_iter()
                 .enumerate()
-                .map(|(index, item)| {
+                .map(|(i, item)| {
                     IRSubItem {
-                        index,
+                        index: i + 1, // 1-indexed per ASTERIX standard
                         layout: to_ir_compoundable_item(item),
                     }
                 })
                 .collect();
-            
+
             IRLayout::Compound { sub_items }
         }
     }

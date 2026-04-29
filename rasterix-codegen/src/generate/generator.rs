@@ -75,7 +75,7 @@ mod tests {
                 items: vec![
                     IRItem {
                         id: 10,
-                        frn: 0,
+                        frn: 1,
                         layout: IRLayout::Fixed {
                             bytes: 2,
                             elements: vec![

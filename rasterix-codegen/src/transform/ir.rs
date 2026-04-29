@@ -26,8 +26,10 @@ pub struct IRItem {
     /// Item ID (e.g., 010, 020, 140)
     pub id: u8,
     
-    /// Field Reference Number - determines position in record FSPEC
-    /// FRN 0 → bit 0.7, FRN 1 → bit 0.6, etc.
+    /// Field Reference Number — determines position in record FSPEC.
+    /// 1-indexed per the ASTERIX standard (EUROCONTROL-SPEC-0149):
+    /// FRN 1 → bit 0.7 (0x80), FRN 2 → bit 0.6 (0x40), FRN 7 → bit 0.1 (0x02),
+    /// FRN 8 → byte 1 bit 0.7 (0x80), etc.
     pub frn: u8,
     
     /// The structural layout of this item
@@ -114,8 +116,8 @@ pub struct IRPartGroup {
 /// A sub-item within a compound item.
 #[derive(Debug)]
 pub struct IRSubItem {
-    /// Zero-based index for this sub-item
-    /// Maps to FSPEC bit: index 0 → bit 0.7, index 1 → bit 0.6, etc.
+    /// 1-indexed per the ASTERIX standard (EUROCONTROL-SPEC-0149).
+    /// Maps to compound FSPEC bit: index 1 → bit 0.7 (0x80), index 2 → bit 0.6 (0x40), etc.
     pub index: usize,
     
     /// The structure of this sub-item 

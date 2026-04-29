@@ -22,6 +22,9 @@ pub struct Item {
     #[serde(rename = "@id")]
     pub id: u8,
 
+    /// Field Reference Number as defined by the ASTERIX standard (1-indexed).
+    /// Per EUROCONTROL-SPEC-0149: FRN 1 is the first item in the record FSPEC,
+    /// mapping to the MSB of the first FSPEC byte (0x80).
     #[serde(rename = "@frn")]
     pub frn: u8,
 

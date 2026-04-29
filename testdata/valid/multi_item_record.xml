@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="48">
-    <item id="10" frn="0">
+    <item id="10" frn="1">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
         </fixed>
     </item>
-    <item id="20" frn="1">
+    <item id="20" frn="2">
         <fixed bytes="1">
             <field name="typ" bits="8"/>
         </fixed>
     </item>
-    <item id="240" frn="3">
+    <item id="240" frn="4">
         <fixed bytes="6">
             <field name="aircraft_id" bits="48" type="string"/>
         </fixed>

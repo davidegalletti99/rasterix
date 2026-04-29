@@ -143,24 +143,32 @@ pub fn nested_type_name(parent_name: &str, suffix: &str) -> Ident {
 /// Calculates the FSPEC byte and bit position from an FRN.
 ///
 /// ASTERIX FSPEC layout (each byte has 7 data bits + 1 FX bit):
-/// - FRN 0 → byte 0, bit 7 (0x80)
-/// - FRN 1 → byte 0, bit 6 (0x40)
-/// - FRN 6 → byte 0, bit 1 (0x02)
-/// - (bit 0 is FX bit, not used for items)
-/// - FRN 7 → byte 1, bit 7 (0x80)
-/// - FRN 8 → byte 1, bit 6 (0x40)
+/// - FRN 1  → byte 0, bit 7 (0x80)  ← first item per ASTERIX standard
+/// - FRN 2  → byte 0, bit 6 (0x40)
+/// - FRN 7  → byte 0, bit 1 (0x02)
+/// - (bit 0 is the FX continuation bit, not used for items)
+/// - FRN 8  → byte 1, bit 7 (0x80)
+/// - FRN 14 → byte 1, bit 1 (0x02)
 ///
 /// # Arguments
 ///
-/// * `frn` - The Field Reference Number (0-indexed)
+/// * `frn` - The Field Reference Number, **1-indexed** per the ASTERIX standard
+///           (EUROCONTROL-SPEC-0149). FRN 1 is the first item in the FSPEC,
+///           mapping to the MSB of the first FSPEC byte.
 ///
 /// # Returns
 ///
-/// A tuple of (byte_index, bit_position) for use with Fspec::set().
-/// The bit_position is passed directly to Fspec which does `1 << (7 - bit)`.
+/// A tuple of `(byte_index, bit_position)` for use with `Fspec::set()`.
+/// `bit_position` is in range 0–6; `Fspec` internally computes `1 << (7 - bit)`.
+///
+/// # Panics
+///
+/// Panics if `frn` is 0. FRN is 1-indexed per the ASTERIX standard.
 pub fn frn_to_fspec_position(frn: usize) -> (usize, u8) {
-    let byte = frn / 7;  // 7 items per byte (bit 0 is FX)
-    let bit = frn % 7;   // Position 0-6, Fspec will compute 1 << (7 - bit)
+    assert!(frn >= 1, "FRN must be >= 1 (1-indexed per ASTERIX standard), got {frn}");
+    let zero = frn - 1;
+    let byte = zero / 7;
+    let bit  = zero % 7;
     (byte, bit as u8)
 }
 
@@ -183,15 +191,15 @@ mod tests {
 
     #[test]
     fn test_frn_to_fspec_position() {
-        // FRN 0-6 map to byte 0, bits 0-6 (Fspec computes 1 << (7-bit))
-        assert_eq!(frn_to_fspec_position(0), (0, 0)); // → 0x80
-        assert_eq!(frn_to_fspec_position(1), (0, 1)); // → 0x40
-        assert_eq!(frn_to_fspec_position(6), (0, 6)); // → 0x02
-        // FRN 7-13 map to byte 1
-        assert_eq!(frn_to_fspec_position(7), (1, 0)); // → 0x80 in byte 1
-        assert_eq!(frn_to_fspec_position(13), (1, 6)); // → 0x02 in byte 1
-        // FRN 14+ map to byte 2
-        assert_eq!(frn_to_fspec_position(14), (2, 0)); // → 0x80 in byte 2
+        // FRN 1-7 map to byte 0, bits 0-6 (Fspec computes 1 << (7-bit))
+        assert_eq!(frn_to_fspec_position(1), (0, 0)); // → 0x80
+        assert_eq!(frn_to_fspec_position(2), (0, 1)); // → 0x40
+        assert_eq!(frn_to_fspec_position(7), (0, 6)); // → 0x02
+        // FRN 8-14 map to byte 1
+        assert_eq!(frn_to_fspec_position(8), (1, 0)); // → 0x80 in byte 1
+        assert_eq!(frn_to_fspec_position(14), (1, 6)); // → 0x02 in byte 1
+        // FRN 15+ map to byte 2
+        assert_eq!(frn_to_fspec_position(15), (2, 0)); // → 0x80 in byte 2
     }
     
     #[test]

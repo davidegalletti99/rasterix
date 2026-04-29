@@ -27,7 +27,7 @@ fn transform_simple_fixed_to_ir() {
     assert_eq!(ir.category.id, 1);
     assert_eq!(ir.category.items.len(), 1);
     assert_eq!(ir.category.items[0].id, 10);
-    assert_eq!(ir.category.items[0].frn, 0);
+    assert_eq!(ir.category.items[0].frn, 1);
 }
 
 #[test]
@@ -86,9 +86,9 @@ fn transform_compound_layout() {
         IRLayout::Compound { sub_items } => {
             assert!(!sub_items.is_empty());
 
-            // Check sub-item indices
+            // Check sub-item indices (1-indexed per ASTERIX standard)
             for (i, sub_item) in sub_items.iter().enumerate() {
-                assert_eq!(sub_item.index, i);
+                assert_eq!(sub_item.index, i + 1);
             }
         }
         _ => panic!("Expected Compound layout"),

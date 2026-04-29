@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="48">
-    <item id="20" frn="0">
+    <item id="20" frn="1">
         <extended bytes="1">
             <part index="0">
                 <field name="a" bits="3"/>
