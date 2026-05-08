@@ -1,8 +1,8 @@
-/// Intermediate Representation (IR) for ASTERIX code generation.
-/// 
-/// The IR is a normalized, validated representation of the XML input that is
-/// easier to work with during code generation. It has been validated for
-/// correctness (e.g., bit counts match byte sizes).
+//! Intermediate Representation (IR) for ASTERIX code generation.
+//! 
+//! The IR is a normalized, validated representation of the XML input that is
+//! easier to work with during code generation. It has been validated for
+//! correctness (e.g., bit counts match byte sizes).
 
 /// Top-level IR structure representing a complete ASTERIX category.
 #[derive(Debug)]
@@ -214,17 +214,14 @@ impl IRLayout {
                 
                 assert_eq!(
                     total_bits, expected_bits,
-                    "Bit count mismatch: Fixed element use {} bits but {} bytes = {} bits",
-                    total_bits, bytes, expected_bits
+                    "Bit count mismatch: Fixed element use {total_bits} bits but {bytes} bytes = {expected_bits} bits"
                 );
             }
             
             IRLayout::Extended { bytes, part_groups } => {
                 let layout_bytes =  part_groups.len();
-                let declared_bytes = bytes.clone();
-                assert_eq!(declared_bytes, layout_bytes, 
-                    "Byte count mismatch: Extended element declared {} bytes but defines {} parts = {} bytes", 
-                    declared_bytes, layout_bytes, layout_bytes);
+                assert_eq!(*bytes, layout_bytes, 
+                    "Byte count mismatch: Extended element declared {} bytes but defines {} parts = {} bytes", *bytes, layout_bytes, layout_bytes);
                 for group in part_groups {
                     let total_bits: usize = group.elements.iter()
                         .map(|e| e.bit_size()).sum();
@@ -245,8 +242,7 @@ impl IRLayout {
                 
                 assert_eq!(
                     total_bits, expected_bits,
-                    "Repetitive item: elements use {} bits but {} bytes = {} bits",
-                    total_bits, bytes, expected_bits
+                    "Repetitive item: elements use {total_bits} bits but {bytes} bytes = {expected_bits} bits"
                 );
             }
             

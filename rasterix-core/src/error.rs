@@ -37,8 +37,8 @@ impl From<std::io::Error> for DecodeError {
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DecodeError::Io(e) => write!(f, "IO error: {}", e),
-            DecodeError::InvalidData(msg) => write!(f, "Invalid data: {}", msg),
+            DecodeError::Io(e) => write!(f, "IO error: {e}"),
+            DecodeError::InvalidData(msg) => write!(f, "Invalid data: {msg}"),
         }
     }
 }

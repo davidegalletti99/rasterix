@@ -51,8 +51,9 @@ pub fn rust_type_for_bits(bits: usize) -> String {
 /// assert_eq!(to_pascal_case("SSR"), format_ident!("Ssr"));
 /// ```
 pub fn to_pascal_case(name: &str) -> Ident {
+    let pascal_spaces_list= ['_', '-'];
     let pascal = name
-        .split(|c: char| c == '_' || c == '-')
+        .split(|c: char| pascal_spaces_list.contains(&c))
         .filter(|s| !s.is_empty())
         .map(|word| {
             let mut chars = word.chars();
@@ -153,8 +154,8 @@ pub fn nested_type_name(parent_name: &str, suffix: &str) -> Ident {
 /// # Arguments
 ///
 /// * `frn` - The Field Reference Number, **1-indexed** per the ASTERIX standard
-///           (EUROCONTROL-SPEC-0149). FRN 1 is the first item in the FSPEC,
-///           mapping to the MSB of the first FSPEC byte.
+///   (EUROCONTROL-SPEC-0149). FRN 1 is the first item in the FSPEC,
+///   mapping to the MSB of the first FSPEC byte.
 ///
 /// # Returns
 ///

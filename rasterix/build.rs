@@ -55,23 +55,21 @@ fn main() {
         // Generate Rust code using rasterix-codegen
         match generate_code(&xml_content) {
             Ok(code) => {
-                let output_path = generated_dir.join(format!("{}.rs", module_name));
+                let output_path = generated_dir.join(format!("{module_name}.rs"));
 
                 // Write the generated module with test helpers
                 let module_code = format!(
-                    "// AUTO-GENERATED from {} - DO NOT EDIT\n\n\
-                     {}\n",
-                    xml_file,
-                    code
+                    "// AUTO-GENERATED from {xml_file} - DO NOT EDIT\n\n\
+                     {code}\n"
                 );
 
                 fs::write(&output_path, &module_code).unwrap();
-                mod_content.push_str(&format!("pub mod {};\n", module_name));
+                mod_content.push_str(&format!("pub mod {module_name};\n"));
 
-                println!("cargo:warning=Generated: {}", output_path.display());
+                println!("cargo:warning=Generated: {output_path:?}");
             }
             Err(e) => {
-                println!("cargo:warning=Failed to generate code for {}: {}", xml_file, e);
+                println!("cargo:warning=Failed to generate code for {xml_file}: {e}");
             }
         }
     }
@@ -99,7 +97,7 @@ fn generate_code(xml_content: &str) -> Result<String, String> {
     use rasterix_codegen::generate::generate;
 
     let category = parse_category(xml_content)
-        .map_err(|e| format!("Parse error: {}", e))?;
+        .map_err(|e| format!("Parse error: {e}"))?;
 
     let ir = std::panic::catch_unwind(|| to_ir(category))
         .map_err(|_| "Transform/validation error".to_string())?;

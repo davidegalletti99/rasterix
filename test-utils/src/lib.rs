@@ -100,8 +100,7 @@ pub fn assert_code_not_contains(generated: &str, forbidden_fragments: &[&str]) {
     for fragment in forbidden_fragments {
         assert!(
             !generated.contains(fragment),
-            "Generated code contains forbidden fragment: '{}'",
-            fragment
+            "Generated code contains forbidden fragment: '{fragment}'"
         );
     }
 }

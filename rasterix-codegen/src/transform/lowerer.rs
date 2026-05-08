@@ -223,9 +223,10 @@ fn lower_element_encode_inner(element: &IRElement, is_epb: bool) -> EncodeOp {
                 let byte_len = bits / 8;
                 if is_epb { EncodeOp::WriteEpbString { name, byte_len } }
                 else { EncodeOp::WriteString { name, byte_len } }
-            } else {
-                if is_epb { EncodeOp::WriteEpbField { name, bits: *bits } }
-                else { EncodeOp::WriteField { name, bits: *bits } }
+            } else if is_epb { 
+                EncodeOp::WriteEpbField { name, bits: *bits } 
+            } else { 
+                EncodeOp::WriteField { name, bits: *bits } 
             }
         }
         IRElement::EPB { content } => lower_element_encode_inner(content, true),

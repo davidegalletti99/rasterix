@@ -150,26 +150,24 @@ pub fn generate_extended_decode(
                     });
                 }
             }
+        } else if i != number_of_parts - 1 {
+            main_decode_body.push(quote! {
+                let #field_name = if fx {
+                    let part = #part_name::decode(reader)?;
+                    fx = reader.read_bits(1)? != 0;
+                    Some(part)
+                } else {
+                    None
+                };
+            });
         } else {
-            if i != number_of_parts - 1 {
-                main_decode_body.push(quote! {
-                    let #field_name = if fx {
-                        let part = #part_name::decode(reader)?;
-                        fx = reader.read_bits(1)? != 0;
-                        Some(part)
-                    } else {
-                        None
-                    };
-                });
-            } else {
-                main_decode_body.push(quote! {
-                    let #field_name = if fx {
-                        Some(#part_name::decode(reader)?)
-                    } else {
-                        None
-                    };
-                });
-            }
+            main_decode_body.push(quote! {
+                let #field_name = if fx {
+                    Some(#part_name::decode(reader)?)
+                } else {
+                    None
+                };
+            });
         }
     }
 

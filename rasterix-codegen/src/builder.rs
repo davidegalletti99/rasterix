@@ -28,14 +28,14 @@ impl Builder for RustBuilder {
         let xml = fs::read_to_string(file_path)
             .map_err(|e| std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Failed to read {}: {}", file_path, e)
+                format!("Failed to read {file_path}: {e}")
             ))?;
 
         // Parse XML into model
         let category = parse_category(&xml)
             .map_err(|e| std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Failed to parse XML: {}", e)
+                format!("Failed to parse XML: {e}")
             ))?;
 
         // Transform to IR (validates at this stage)
@@ -120,11 +120,11 @@ impl RustBuilder {
                 
                 match self.build_file(input_path, output_dir) {
                     Ok(output_path) => {
-                        println!("Generated: {:?}", output_path);
+                        println!("Generated: {output_path:?}");
                         generated_files.push(output_path);
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to process {}: {}", input_path, e);
+                        eprintln!("Warning: Failed to process {input_path}: {e}");
                     }
                 }
             }
@@ -140,7 +140,7 @@ impl RustBuilder {
         PathBuf::from(input_path)
             .file_stem()
             .and_then(|s| s.to_str())
-            .map(|s| format!("{}.rs", s))
+            .map(|s| format!("{s}.rs"))
             .unwrap_or_else(|| "generated.rs".to_string())
     }
 }

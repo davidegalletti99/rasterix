@@ -151,7 +151,7 @@ fn to_ir_element(element: Element) -> IRElement {
             IRElement::Field {
                 name: field.name,
                 bits: field.bits,
-                is_string: is_string,
+                is_string,
             }
         },
         Element::EPB(epb) => {
@@ -161,7 +161,7 @@ fn to_ir_element(element: Element) -> IRElement {
                     IRElement::Field {
                         name: field.name,
                         bits: field.bits,
-                        is_string: is_string,
+                        is_string,
                     }
                 },
                 EPBContent::Enum(enum_def) => to_ir_enum(enum_def),
