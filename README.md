@@ -1,8 +1,22 @@
 # Rasterix
 
-**Rasterix** is a Rust library for encoding and decoding [ASTERIX](https://www.eurocontrol.int/asterix) (All Purpose Structured Eurocontrol Surveillance Information Exchange) messages.
+**Rasterix** is a Rust library for encoding and decoding [ASTERIX](https://www.eurocontrol.int/asterix) messages.
 
-ASTERIX is the standard data format used in air traffic control systems for exchanging surveillance data (radar, ADS-B, MLAT, etc.).
+## What is ASTERIX?
+
+**ASTERIX** (All Purpose Structured Eurocontrol Surveillance Information Exchange) is a binary data format standardised by [EUROCONTROL](https://www.eurocontrol.int) for exchanging air traffic surveillance data between systems. Think of it as the protocol that lets a radar station, an ATC centre, and an airline operations room all speak the same language when passing aircraft position data around.
+
+In practice, ASTERIX carries:
+
+- **Radar plots and tracks** — raw or processed detections from PSR (primary) and SSR (secondary) radars
+- **ADS-B reports** — position broadcasts transmitted directly by aircraft transponders
+- **Mode S data** — selective interrogation responses with richer aircraft state (altitude, speed, callsign)
+- **MLAT positions** — multilateration fixes derived from time-difference-of-arrival across receiver networks
+- **System status and alarms** — sensor health, track quality indicators, and operational notices
+
+The format organises data into numbered **categories** (e.g. CAT 048 for monoradar target reports, CAT 062 for SDPS tracks). Each category defines a set of optional **data items**, and a compact bit-field header called the **FSPEC** (Field Specification) indicates which items are present in each record. Items are identified by a 1-indexed **Field Reference Number (FRN)**, matching the bit position in the FSPEC.
+
+The full specification is published by EUROCONTROL as [EUROCONTROL-SPEC-0149](https://www.eurocontrol.int/asterix) and is freely available.
 
 ## Features
 
@@ -235,13 +249,13 @@ From this XML:
 
 ```xml
 <category id="48">
-    <item id="010" frn="0">
+    <item id="010" frn="1">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
         </fixed>
     </item>
-    <item id="020" frn="1">
+    <item id="020" frn="2">
         <fixed bytes="1">
             <enum name="target_type" bits="3">
                 <value name="PSR" value="1"/>
