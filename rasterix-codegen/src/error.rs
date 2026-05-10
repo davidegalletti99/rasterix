@@ -44,11 +44,11 @@ pub enum CodegenError {
         actual_bits: usize,
     },
 
-    #[error("{context}: byte count mismatch — declared {declared} bytes but found {actual} part group(s)")]
+    #[error("{context}: byte count mismatch — declared {declared} bytes but found {actual_groups} part group(s)")]
     ExtendedByteMismatch {
         context: String,
         declared: usize,
-        actual: usize,
+        actual_groups: usize,
     },
 
     #[error("{context}, part group {index}: has {actual} bits but must have exactly 7 data bits")]
