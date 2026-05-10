@@ -197,7 +197,10 @@ fn lower_element_decode_inner(element: &IRElement, is_epb: bool) -> Result<Decod
                 else { Ok(DecodeOp::ReadField { name, bits: *bits, rust_type }) }
             }
         }
-        IRElement::EPB { content } => lower_element_decode_inner(content, true),
+        IRElement::EPB { content } => {
+            if is_epb { return Err(CodegenError::NestedEpb); }
+            lower_element_decode_inner(content, true)
+        }
         IRElement::Enum { name, bits, .. } => {
             let name = to_snake_case(name);
             let enum_type = to_pascal_case(name.to_string().as_str());
@@ -244,7 +247,10 @@ fn lower_element_encode_inner(element: &IRElement, is_epb: bool) -> Result<Encod
                 Ok(EncodeOp::WriteField { name, bits: *bits })
             }
         }
-        IRElement::EPB { content } => lower_element_encode_inner(content, true),
+        IRElement::EPB { content } => {
+            if is_epb { return Err(CodegenError::NestedEpb); }
+            lower_element_encode_inner(content, true)
+        }
         IRElement::Enum { name, bits, .. } => {
             let name = to_snake_case(name);
             if is_epb { Ok(EncodeOp::WriteEpbEnum { name, bits: *bits }) }

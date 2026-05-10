@@ -27,15 +27,15 @@ use crate::error::CodegenError;
 use crate::transform::ir::IR;
 
 /// Main entry point for code generation.
-/// 
+///
 /// Takes the validated IR and produces a complete Rust module as a TokenStream.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `ir` - The intermediate representation to generate code from
-/// 
+///
 /// # Returns
-/// 
+///
 /// A TokenStream containing the complete generated Rust code, ready to be
 /// written to a file or included in a build script.
 pub fn generate(ir: &IR) -> Result<TokenStream, CodegenError> {
