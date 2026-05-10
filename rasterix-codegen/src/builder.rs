@@ -3,54 +3,40 @@ use crate::{
     generate::generate,
     parse::parser::parse_category,
     transform::transformer::to_ir,
+    CodegenError,
 };
 
 /// Trait for building ASTERIX code from XML definitions.
 pub trait Builder {
     /// Builds Rust code from an XML file.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `file_path` - Path to the XML file
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// The generated Rust code as a string
-    fn build(&self, file_path: &str) -> Result<String, std::io::Error>;
+    fn build(&self, file_path: &str) -> Result<String, CodegenError>;
 }
 
 /// Rust code generator builder.
 pub struct RustBuilder;
 
 impl Builder for RustBuilder {
-    fn build(&self, file_path: &str) -> Result<String, std::io::Error> {
+    fn build(&self, file_path: &str) -> Result<String, CodegenError> {
         // Read XML file
         let xml = fs::read_to_string(file_path)
-            .map_err(|e| std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Failed to read {file_path}: {e}")
-            ))?;
+            .map_err(|source| CodegenError::Io { path: file_path.to_string(), source })?;
 
         // Parse XML into model
-        let category = parse_category(&xml)
-            .map_err(|e| std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Failed to parse XML: {e}")
-            ))?;
+        let category = parse_category(&xml)?;
 
         // Transform to IR (validates at this stage)
-        let ir = to_ir(category)
-            .map_err(|e| std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Failed to transform IR: {e}")
-            ))?;
+        let ir = to_ir(category)?;
 
         // Generate Rust code
-        let tokens = generate(&ir)
-            .map_err(|e| std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Failed to generate code: {e}")
-            ))?;
+        let tokens = generate(&ir)?;
 
         Ok(tokens.to_string())
     }
@@ -63,69 +49,70 @@ impl RustBuilder {
     }
     
     /// Builds code from a single file and writes to output directory.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `input_path` - Path to the XML file
     /// * `output_dir` - Directory to write generated code
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Path to the generated file
     pub fn build_file(
         &self,
         input_path: &str,
         output_dir: &str,
-    ) -> Result<PathBuf, std::io::Error> {
+    ) -> Result<PathBuf, CodegenError> {
         let code = self.build(input_path)?;
-        
+
         // Extract category number from generated code or filename
         let output_filename = Self::extract_output_filename(input_path);
         let output_path = PathBuf::from(output_dir).join(output_filename);
-        
+
         // Create output directory if needed
         if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent)
+                .map_err(|source| CodegenError::Io { path: parent.display().to_string(), source })?;
         }
-        
+
         // Write generated code
-        fs::write(&output_path, code)?;
-        
+        fs::write(&output_path, code)
+            .map_err(|source| CodegenError::Io { path: output_path.display().to_string(), source })?;
+
         Ok(output_path)
     }
     
     /// Builds code from all XML files in a directory.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `input_dir` - Directory containing XML files
     /// * `output_dir` - Directory to write generated code
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Vector of paths to generated files
     pub fn build_directory(
         &self,
         input_dir: &str,
         output_dir: &str,
-    ) -> Result<Vec<PathBuf>, std::io::Error> {
+    ) -> Result<Vec<PathBuf>, CodegenError> {
         let mut generated_files = Vec::new();
-        
+
         // Read directory
-        let entries = fs::read_dir(input_dir)?;
-        
+        let entries = fs::read_dir(input_dir)
+            .map_err(|source| CodegenError::Io { path: input_dir.to_string(), source })?;
+
         for entry in entries {
-            let entry = entry?;
+            let entry = entry
+                .map_err(|source| CodegenError::Io { path: input_dir.to_string(), source })?;
             let path = entry.path();
-            
+
             // Process only .xml files
             if path.extension().and_then(|s| s.to_str()) == Some("xml") {
                 let input_path = path.to_str()
-                    .ok_or_else(|| std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "Invalid UTF-8 in path"
-                    ))?;
-                
+                    .ok_or(CodegenError::InvalidPath)?;
+
                 match self.build_file(input_path, output_dir) {
                     Ok(output_path) => {
                         println!("Generated: {output_path:?}");
@@ -137,7 +124,7 @@ impl RustBuilder {
                 }
             }
         }
-        
+
         Ok(generated_files)
     }
     
