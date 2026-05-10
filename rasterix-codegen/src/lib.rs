@@ -2,8 +2,6 @@ pub mod generate;
 pub mod transform;
 pub mod parse;
 pub mod builder;
+pub mod error;
 
-#[cfg(test)]
-mod tests {
-
-}
+pub use error::CodegenError;
