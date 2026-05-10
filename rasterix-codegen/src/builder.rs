@@ -16,7 +16,13 @@ pub trait Builder {
     ///
     /// # Returns
     ///
-    /// The generated Rust code as a string
+    /// The generated Rust code as a string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CodegenError::Io`] if the file cannot be read.
+    /// Returns [`CodegenError::Parse`] if the XML is malformed.
+    /// Returns other [`CodegenError`] variants if the definition fails validation or lowering.
     fn build(&self, file_path: &str) -> Result<String, CodegenError>;
 }
 
@@ -57,7 +63,12 @@ impl RustBuilder {
     ///
     /// # Returns
     ///
-    /// Path to the generated file
+    /// Path to the generated file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CodegenError`] from [`Builder::build`] if generation fails.
+    /// Returns [`CodegenError::Io`] if the output directory cannot be created or the file cannot be written.
     pub fn build_file(
         &self,
         input_path: &str,
@@ -84,6 +95,9 @@ impl RustBuilder {
     
     /// Builds code from all XML files in a directory.
     ///
+    /// Per-file generation failures are logged to stderr and skipped; only directory-level
+    /// I/O errors (unreadable directory, non-UTF-8 path) cause the method to return `Err`.
+    ///
     /// # Arguments
     ///
     /// * `input_dir` - Directory containing XML files
@@ -91,7 +105,12 @@ impl RustBuilder {
     ///
     /// # Returns
     ///
-    /// Vector of paths to generated files
+    /// Vector of paths to successfully generated files.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CodegenError::Io`] if `input_dir` cannot be read.
+    /// Returns [`CodegenError::InvalidPath`] if any entry path contains non-UTF-8 bytes.
     pub fn build_directory(
         &self,
         input_dir: &str,
