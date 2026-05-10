@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum CodegenError {
     // ── I/O ──────────────────────────────────────────────────────────────
-    #[error("Failed to read '{path}': {source}")]
+    #[error("I/O error on '{path}': {source}")]
     Io {
         path: String,
         #[source]
