@@ -99,8 +99,7 @@ fn generate_code(xml_content: &str) -> Result<String, String> {
     let category = parse_category(xml_content)
         .map_err(|e| format!("Parse error: {e}"))?;
 
-    let ir = std::panic::catch_unwind(|| to_ir(category))
-        .map_err(|_| "Transform/validation error".to_string())?;
+    let ir = to_ir(category).map_err(|e| e.to_string())?;
 
     let tokens = generate(&ir);
     Ok(tokens.to_string())
