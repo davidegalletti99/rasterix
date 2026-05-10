@@ -155,6 +155,18 @@ The core crate should remain minimal and dependency-free:
 3. Add comprehensive unit tests
 4. Document all public APIs
 
+## Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format: `type: short description` (lowercase, no trailing period). Examples:
+
+```
+feat(codegen): add support for compound items
+fix(core): correct bit alignment in BitWriter
+docs: update XML schema reference
+```
+
+Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci/cd`.
+
 ## Pull Request Process
 
 1. **Fork** the repository
