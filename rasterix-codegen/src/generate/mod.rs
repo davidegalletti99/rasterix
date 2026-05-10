@@ -23,6 +23,7 @@ pub mod enum_gen;
 pub mod utils;
 
 use proc_macro2::TokenStream;
+use crate::error::CodegenError;
 use crate::transform::ir::IR;
 
 /// Main entry point for code generation.
@@ -37,6 +38,6 @@ use crate::transform::ir::IR;
 /// 
 /// A TokenStream containing the complete generated Rust code, ready to be
 /// written to a file or included in a build script.
-pub fn generate(ir: &IR) -> TokenStream {
+pub fn generate(ir: &IR) -> Result<TokenStream, CodegenError> {
     generator::generate(ir)
 }

@@ -1,20 +1,21 @@
 use proc_macro2::Ident;
 use quote::format_ident;
 
+use crate::error::CodegenError;
 use crate::generate::utils::{frn_to_fspec_position, rust_type_for_bits, to_pascal_case, to_snake_case};
 use super::ir::*;
 use super::lower_ir::*;
 
-/// Lowers the semantic IR into a flat, code-generation-oriented representation.
-pub fn lower(ir: &IR) -> LoweredIR {
+pub fn lower(ir: &IR) -> Result<LoweredIR, CodegenError> {
     let category = &ir.category;
-
-    LoweredIR {
+    Ok(LoweredIR {
         category_id: category.id,
         module_name: format_ident!("cat{:03}", category.id),
         record: lower_record(category),
-        items: category.items.iter().map(lower_item).collect(),
-    }
+        items: category.items.iter()
+            .map(lower_item)
+            .collect::<Result<Vec<_>, _>>()?,
+    })
 }
 
 fn lower_record(category: &IRCategory) -> LoweredRecord {
@@ -27,217 +28,231 @@ fn lower_record(category: &IRCategory) -> LoweredRecord {
             fspec_bit,
         }
     }).collect();
-
-    LoweredRecord {
-        name: format_ident!("Record"),
-        entries,
-    }
+    LoweredRecord { name: format_ident!("Record"), entries }
 }
 
-fn lower_item(item: &IRItem) -> LoweredItem {
+fn lower_item(item: &IRItem) -> Result<LoweredItem, CodegenError> {
     let name = format_ident!("Item{:03}", item.id);
     let enums = collect_and_lower_enums(&item.layout);
-    let kind = lower_layout(&name, &item.layout);
-
-    LoweredItem { name, enums, kind }
+    let kind = lower_layout(&name, &item.layout)?;
+    Ok(LoweredItem { name, enums, kind })
 }
 
-fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> LoweredItemKind {
+fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKind, CodegenError> {
     match layout {
         IRLayout::Fixed { bytes, elements } => {
-            LoweredItemKind::Simple {
+            Ok(LoweredItemKind::Simple {
                 is_explicit: false,
                 byte_size: *bytes,
-                fields: lower_fields(elements),
-                decode_ops: lower_decode_ops(elements, false),
-                encode_ops: lower_encode_ops(elements, false, *bytes),
-            }
+                fields: lower_fields(elements)?,
+                decode_ops: lower_decode_ops(elements, false)?,
+                encode_ops: lower_encode_ops(elements, false, *bytes)?,
+            })
         }
         IRLayout::Explicit { bytes, elements } => {
-            LoweredItemKind::Simple {
+            Ok(LoweredItemKind::Simple {
                 is_explicit: true,
                 byte_size: *bytes,
-                fields: lower_fields(elements),
-                decode_ops: lower_decode_ops(elements, true),
-                encode_ops: lower_encode_ops(elements, true, *bytes),
-            }
+                fields: lower_fields(elements)?,
+                decode_ops: lower_decode_ops(elements, true)?,
+                encode_ops: lower_encode_ops(elements, true, *bytes)?,
+            })
         }
         IRLayout::Extended { part_groups, .. } => {
-            let parts = part_groups.iter().map(|group| {
-                LoweredPart {
+            let parts = part_groups.iter()
+                .map(|group| -> Result<LoweredPart, CodegenError> { Ok(LoweredPart {
                     index: group.index,
                     struct_name: format_ident!("{}Part{}", parent_name, group.index),
                     field_name: format_ident!("part{}", group.index),
                     is_required: group.index == 0,
-                    fields: lower_fields(&group.elements),
-                    decode_ops: lower_element_ops_decode(&group.elements),
-                    encode_ops: lower_element_ops_encode(&group.elements),
-                }
-            }).collect();
-            LoweredItemKind::Extended { parts }
+                    fields: lower_fields(&group.elements)?,
+                    decode_ops: lower_element_ops_decode(&group.elements)?,
+                    encode_ops: lower_element_ops_encode(&group.elements)?,
+                })})
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(LoweredItemKind::Extended { parts })
         }
         IRLayout::Repetitive { bytes: _, counter_bytes, elements } => {
             let element_type_name = format_ident!("{}Element", parent_name);
-            LoweredItemKind::Repetitive {
+            Ok(LoweredItemKind::Repetitive {
                 element_type_name,
                 counter_bytes: *counter_bytes,
-                fields: lower_fields(elements),
-                decode_ops: lower_element_ops_decode(elements),
-                encode_ops: lower_element_ops_encode(elements),
-            }
+                fields: lower_fields(elements)?,
+                decode_ops: lower_element_ops_decode(elements)?,
+                encode_ops: lower_element_ops_encode(elements)?,
+            })
         }
         IRLayout::Compound { sub_items } => {
-            let lowered_subs = sub_items.iter().map(|sub| {
-                assert!(
-                    !matches!(sub.layout, IRLayout::Compound { .. }),
-                    "Nested compounds are not supported"
-                );
-                let sub_name = format_ident!("{}Sub{}", parent_name, sub.index);
-                let (fspec_byte, fspec_bit) = frn_to_fspec_position(sub.index);
-                let enums = collect_and_lower_enums(&sub.layout);
-                let kind = lower_layout(&sub_name, &sub.layout);
-                LoweredSubItem {
-                    index: sub.index,
-                    struct_name: sub_name,
-                    field_name: format_ident!("sub{}", sub.index),
-                    fspec_byte,
-                    fspec_bit,
-                    enums,
-                    kind,
-                }
-            }).collect();
-            LoweredItemKind::Compound { sub_items: lowered_subs }
+            let lowered_subs = sub_items.iter()
+                .map(|sub| {
+                    if matches!(sub.layout, IRLayout::Compound { .. }) {
+                        return Err(CodegenError::NestedCompound);
+                    }
+                    let sub_name = format_ident!("{}Sub{}", parent_name, sub.index);
+                    let (fspec_byte, fspec_bit) = frn_to_fspec_position(sub.index);
+                    let enums = collect_and_lower_enums(&sub.layout);
+                    let kind = lower_layout(&sub_name, &sub.layout)?;
+                    Ok(LoweredSubItem {
+                        index: sub.index,
+                        struct_name: sub_name,
+                        field_name: format_ident!("sub{}", sub.index),
+                        fspec_byte,
+                        fspec_bit,
+                        enums,
+                        kind,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(LoweredItemKind::Compound { sub_items: lowered_subs })
         }
     }
 }
 
 // ── Field Lowering ────────────────────────────────────────────────────────
 
-fn lower_fields(elements: &[IRElement]) -> Vec<FieldDescriptor> {
-    elements.iter().filter_map(lower_field).collect()
+fn lower_fields(elements: &[IRElement]) -> Result<Vec<FieldDescriptor>, CodegenError> {
+    let mut result = Vec::new();
+    for element in elements {
+        if let Some(fd) = lower_field(element)? {
+            result.push(fd);
+        }
+    }
+    Ok(result)
 }
 
-fn lower_field(element: &IRElement) -> Option<FieldDescriptor> {
+fn lower_field(element: &IRElement) -> Result<Option<FieldDescriptor>, CodegenError> {
     match element {
         IRElement::EPB { content } => field_descriptor_for(content, true),
         other => field_descriptor_for(other, false),
     }
 }
 
-fn field_descriptor_for(element: &IRElement, optional: bool) -> Option<FieldDescriptor> {
+fn field_descriptor_for(element: &IRElement, optional: bool) -> Result<Option<FieldDescriptor>, CodegenError> {
     match element {
         IRElement::Field { name, bits, is_string } => {
             let field_name = to_snake_case(name);
             if *is_string {
                 let byte_len = bits / 8;
-                let type_tokens = if optional { FieldType::OptionalFixedString(byte_len) } else { FieldType::FixedString(byte_len) };
-                Some(FieldDescriptor { name: field_name, type_tokens })
+                let type_tokens = if optional {
+                    FieldType::OptionalFixedString(byte_len)
+                } else {
+                    FieldType::FixedString(byte_len)
+                };
+                Ok(Some(FieldDescriptor { name: field_name, type_tokens }))
             } else {
                 let rust_type = format_ident!("{}", rust_type_for_bits(*bits));
-                let type_tokens = if optional { FieldType::OptionalPrimitive(rust_type) } else { FieldType::Primitive(rust_type) };
-                Some(FieldDescriptor { name: field_name, type_tokens })
+                let type_tokens = if optional {
+                    FieldType::OptionalPrimitive(rust_type)
+                } else {
+                    FieldType::Primitive(rust_type)
+                };
+                Ok(Some(FieldDescriptor { name: field_name, type_tokens }))
             }
         }
         IRElement::Enum { name, .. } => {
             let field_name = to_snake_case(name);
             let enum_type = to_pascal_case(name);
-            let type_tokens = if optional { FieldType::OptionalEnum(enum_type) } else { FieldType::Enum(enum_type) };
-            Some(FieldDescriptor { name: field_name, type_tokens })
+            let type_tokens = if optional {
+                FieldType::OptionalEnum(enum_type)
+            } else {
+                FieldType::Enum(enum_type)
+            };
+            Ok(Some(FieldDescriptor { name: field_name, type_tokens }))
         }
-        IRElement::Spare { .. } => None,
-        IRElement::EPB { .. } => panic!("Nested EPB not supported"),
+        IRElement::Spare { .. } => Ok(None),
+        IRElement::EPB { .. } => Err(CodegenError::NestedEpb),
     }
 }
 
 // ── Decode Op Lowering ────────────────────────────────────────────────────
 
-fn lower_decode_ops(elements: &[IRElement], is_explicit: bool) -> Vec<DecodeOp> {
+fn lower_decode_ops(elements: &[IRElement], is_explicit: bool) -> Result<Vec<DecodeOp>, CodegenError> {
     let mut ops = Vec::new();
     if is_explicit {
         ops.push(DecodeOp::ReadLengthByte);
     }
-    ops.extend(lower_element_ops_decode(elements));
-    ops
+    ops.extend(lower_element_ops_decode(elements)?);
+    Ok(ops)
 }
 
-fn lower_element_ops_decode(elements: &[IRElement]) -> Vec<DecodeOp> {
+fn lower_element_ops_decode(elements: &[IRElement]) -> Result<Vec<DecodeOp>, CodegenError> {
     elements.iter().map(lower_element_decode).collect()
 }
 
-fn lower_element_decode(element: &IRElement) -> DecodeOp {
+fn lower_element_decode(element: &IRElement) -> Result<DecodeOp, CodegenError> {
     lower_element_decode_inner(element, false)
 }
 
-fn lower_element_decode_inner(element: &IRElement, is_epb: bool) -> DecodeOp {
+fn lower_element_decode_inner(element: &IRElement, is_epb: bool) -> Result<DecodeOp, CodegenError> {
     match element {
         IRElement::Field { name, bits, is_string } => {
             let name = to_snake_case(name);
             if *is_string {
                 let byte_len = bits / 8;
-                if is_epb { DecodeOp::ReadEpbString { name, byte_len } }
-                else { DecodeOp::ReadString { name, byte_len } }
+                if is_epb { Ok(DecodeOp::ReadEpbString { name, byte_len }) }
+                else { Ok(DecodeOp::ReadString { name, byte_len }) }
             } else {
                 let rust_type = format_ident!("{}", rust_type_for_bits(*bits));
-                if is_epb { DecodeOp::ReadEpbField { name, bits: *bits, rust_type } }
-                else { DecodeOp::ReadField { name, bits: *bits, rust_type } }
+                if is_epb { Ok(DecodeOp::ReadEpbField { name, bits: *bits, rust_type }) }
+                else { Ok(DecodeOp::ReadField { name, bits: *bits, rust_type }) }
             }
         }
         IRElement::EPB { content } => lower_element_decode_inner(content, true),
         IRElement::Enum { name, bits, .. } => {
             let name = to_snake_case(name);
             let enum_type = to_pascal_case(name.to_string().as_str());
-            if is_epb { DecodeOp::ReadEpbEnum { name, bits: *bits, enum_type } }
-            else { DecodeOp::ReadEnum { name, bits: *bits, enum_type } }
+            if is_epb { Ok(DecodeOp::ReadEpbEnum { name, bits: *bits, enum_type }) }
+            else { Ok(DecodeOp::ReadEnum { name, bits: *bits, enum_type }) }
         }
         IRElement::Spare { bits } => {
-            assert!(!is_epb, "EPB can only contain Field or Enum");
-            DecodeOp::SkipSpare { bits: *bits }
+            if is_epb { return Err(CodegenError::EpbContainsSpare); }
+            Ok(DecodeOp::SkipSpare { bits: *bits })
         }
     }
 }
 
 // ── Encode Op Lowering ────────────────────────────────────────────────────
 
-fn lower_encode_ops(elements: &[IRElement], is_explicit: bool, byte_size: usize) -> Vec<EncodeOp> {
+fn lower_encode_ops(elements: &[IRElement], is_explicit: bool, byte_size: usize) -> Result<Vec<EncodeOp>, CodegenError> {
     let mut ops = Vec::new();
     if is_explicit {
         ops.push(EncodeOp::WriteLengthByte { total_bytes: byte_size + 1 });
     }
-    ops.extend(lower_element_ops_encode(elements));
-    ops
+    ops.extend(lower_element_ops_encode(elements)?);
+    Ok(ops)
 }
 
-fn lower_element_ops_encode(elements: &[IRElement]) -> Vec<EncodeOp> {
+fn lower_element_ops_encode(elements: &[IRElement]) -> Result<Vec<EncodeOp>, CodegenError> {
     elements.iter().map(lower_element_encode).collect()
 }
 
-fn lower_element_encode(element: &IRElement) -> EncodeOp {
+fn lower_element_encode(element: &IRElement) -> Result<EncodeOp, CodegenError> {
     lower_element_encode_inner(element, false)
 }
 
-fn lower_element_encode_inner(element: &IRElement, is_epb: bool) -> EncodeOp {
+fn lower_element_encode_inner(element: &IRElement, is_epb: bool) -> Result<EncodeOp, CodegenError> {
     match element {
         IRElement::Field { name, bits, is_string } => {
             let name = to_snake_case(name);
             if *is_string {
                 let byte_len = bits / 8;
-                if is_epb { EncodeOp::WriteEpbString { name, byte_len } }
-                else { EncodeOp::WriteString { name, byte_len } }
-            } else if is_epb { 
-                EncodeOp::WriteEpbField { name, bits: *bits } 
-            } else { 
-                EncodeOp::WriteField { name, bits: *bits } 
+                if is_epb { Ok(EncodeOp::WriteEpbString { name, byte_len }) }
+                else { Ok(EncodeOp::WriteString { name, byte_len }) }
+            } else if is_epb {
+                Ok(EncodeOp::WriteEpbField { name, bits: *bits })
+            } else {
+                Ok(EncodeOp::WriteField { name, bits: *bits })
             }
         }
         IRElement::EPB { content } => lower_element_encode_inner(content, true),
         IRElement::Enum { name, bits, .. } => {
             let name = to_snake_case(name);
-            if is_epb { EncodeOp::WriteEpbEnum { name, bits: *bits } }
-            else { EncodeOp::WriteEnum { name, bits: *bits } }
+            if is_epb { Ok(EncodeOp::WriteEpbEnum { name, bits: *bits }) }
+            else { Ok(EncodeOp::WriteEnum { name, bits: *bits }) }
         }
         IRElement::Spare { bits } => {
-            assert!(!is_epb, "EPB can only contain Field or Enum");
-            EncodeOp::WriteSpare { bits: *bits }
+            if is_epb { return Err(CodegenError::EpbContainsSpare); }
+            Ok(EncodeOp::WriteSpare { bits: *bits })
         }
     }
 }
@@ -286,11 +301,9 @@ fn collect_enums_from_elements(elements: &[IRElement], enums: &mut Vec<LoweredEn
 fn lower_enum(name: &str, values: &[(String, u8)]) -> LoweredEnum {
     LoweredEnum {
         name: to_pascal_case(name),
-        variants: values.iter().map(|(vname, vval)| {
-            LoweredEnumVariant {
-                name: to_pascal_case(vname),
-                value: *vval,
-            }
+        variants: values.iter().map(|(vname, vval)| LoweredEnumVariant {
+            name: to_pascal_case(vname),
+            value: *vval,
         }).collect(),
     }
 }
@@ -298,6 +311,9 @@ fn lower_enum(name: &str, values: &[(String, u8)]) -> LoweredEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::CodegenError;
+
+    // ── Happy-path tests ──────────────────────────────────────────────────
 
     #[test]
     fn test_lower_fixed_item() {
@@ -310,22 +326,19 @@ mod tests {
                     layout: IRLayout::Fixed {
                         bytes: 2,
                         elements: vec![
-                            IRElement::Field { name: "sac".to_string(), bits: 8 , is_string: false},
-                            IRElement::Field { name: "sic".to_string(), bits: 8, is_string: false},
+                            IRElement::Field { name: "sac".to_string(), bits: 8, is_string: false },
+                            IRElement::Field { name: "sic".to_string(), bits: 8, is_string: false },
                         ],
                     },
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         assert_eq!(lowered.category_id, 48);
         assert_eq!(lowered.module_name, format_ident!("cat048"));
         assert_eq!(lowered.items.len(), 1);
-
         let item = &lowered.items[0];
         assert_eq!(item.name, format_ident!("Item010"));
-
         match &item.kind {
             LoweredItemKind::Simple { is_explicit, fields, decode_ops, encode_ops, .. } => {
                 assert!(!is_explicit);
@@ -349,17 +362,13 @@ mod tests {
                     frn: 2,
                     layout: IRLayout::Explicit {
                         bytes: 2,
-                        elements: vec![
-                            IRElement::Field { name: "data".to_string(), bits: 16, is_string: false },
-                        ],
+                        elements: vec![IRElement::Field { name: "data".to_string(), bits: 16, is_string: false }],
                     },
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         match &item.kind {
             LoweredItemKind::Simple { is_explicit, decode_ops, encode_ops, .. } => {
                 assert!(is_explicit);
@@ -388,10 +397,8 @@ mod tests {
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         match &item.kind {
             LoweredItemKind::Simple { fields, decode_ops, encode_ops, .. } => {
                 assert_eq!(fields.len(), 1);
@@ -414,23 +421,19 @@ mod tests {
                     frn: 3,
                     layout: IRLayout::Fixed {
                         bytes: 2,
-                        elements: vec![
-                            IRElement::EPB {
-                                content: Box::new(IRElement::Field {
-                                    name: "opt_val".to_string(),
-                                    bits: 15,
-                                    is_string: false,
-                                }),
-                            },
-                        ],
+                        elements: vec![IRElement::EPB {
+                            content: Box::new(IRElement::Field {
+                                name: "opt_val".to_string(),
+                                bits: 15,
+                                is_string: false,
+                            }),
+                        }],
                     },
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         match &item.kind {
             LoweredItemKind::Simple { fields, decode_ops, .. } => {
                 assert_eq!(fields.len(), 1);
@@ -455,10 +458,7 @@ mod tests {
                             IRElement::Enum {
                                 name: "target_type".to_string(),
                                 bits: 3,
-                                values: vec![
-                                    ("PSR".to_string(), 1),
-                                    ("SSR".to_string(), 2),
-                                ],
+                                values: vec![("PSR".to_string(), 1), ("SSR".to_string(), 2)],
                             },
                             IRElement::Spare { bits: 5 },
                         ],
@@ -466,10 +466,8 @@ mod tests {
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         assert_eq!(item.enums.len(), 1);
         assert_eq!(item.enums[0].name, format_ident!("TargetType"));
         assert_eq!(item.enums[0].variants.len(), 2);
@@ -489,10 +487,8 @@ mod tests {
                 ],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let record = &lowered.record;
-
         assert_eq!(record.entries.len(), 3);
         assert_eq!(record.entries[0].fspec_byte, 0);
         assert_eq!(record.entries[0].fspec_bit, 0);
@@ -522,19 +518,15 @@ mod tests {
                             },
                             IRPartGroup {
                                 index: 1,
-                                elements: vec![
-                                    IRElement::Field { name: "c".to_string(), bits: 7, is_string: false },
-                                ],
+                                elements: vec![IRElement::Field { name: "c".to_string(), bits: 7, is_string: false }],
                             },
                         ],
                     },
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         match &item.kind {
             LoweredItemKind::Extended { parts } => {
                 assert_eq!(parts.len(), 2);
@@ -563,18 +555,14 @@ mod tests {
                                 index: 1,
                                 layout: IRLayout::Fixed {
                                     bytes: 2,
-                                    elements: vec![
-                                        IRElement::Field { name: "x".to_string(), bits: 16, is_string: false },
-                                    ],
+                                    elements: vec![IRElement::Field { name: "x".to_string(), bits: 16, is_string: false }],
                                 },
                             },
                             IRSubItem {
                                 index: 2,
                                 layout: IRLayout::Fixed {
                                     bytes: 1,
-                                    elements: vec![
-                                        IRElement::Field { name: "y".to_string(), bits: 8, is_string: false },
-                                    ],
+                                    elements: vec![IRElement::Field { name: "y".to_string(), bits: 8, is_string: false }],
                                 },
                             },
                         ],
@@ -582,10 +570,8 @@ mod tests {
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         match &item.kind {
             LoweredItemKind::Compound { sub_items } => {
                 assert_eq!(sub_items.len(), 2);
@@ -608,18 +594,14 @@ mod tests {
                     frn: 4,
                     layout: IRLayout::Fixed {
                         bytes: 6,
-                        elements: vec![
-                            IRElement::Field { name: "aircraft_id".to_string(), bits: 48, is_string: true },
-                        ],
+                        elements: vec![IRElement::Field { name: "aircraft_id".to_string(), bits: 48, is_string: true }],
                     },
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
         assert_eq!(item.name, format_ident!("Item240"));
-
         match &item.kind {
             LoweredItemKind::Simple { fields, decode_ops, encode_ops, .. } => {
                 assert_eq!(fields.len(), 1);
@@ -641,23 +623,19 @@ mod tests {
                     frn: 3,
                     layout: IRLayout::Fixed {
                         bytes: 7,
-                        elements: vec![
-                            IRElement::EPB {
-                                content: Box::new(IRElement::Field {
-                                    name: "callsign".to_string(),
-                                    bits: 48,
-                                    is_string: true,
-                                }),
-                            },
-                        ],
+                        elements: vec![IRElement::EPB {
+                            content: Box::new(IRElement::Field {
+                                name: "callsign".to_string(),
+                                bits: 48,
+                                is_string: true,
+                            }),
+                        }],
                     },
                 }],
             },
         };
-
-        let lowered = lower(&ir);
+        let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
-
         match &item.kind {
             LoweredItemKind::Simple { fields, decode_ops, encode_ops, .. } => {
                 assert_eq!(fields.len(), 1);
@@ -667,5 +645,80 @@ mod tests {
             }
             _ => panic!("Expected Simple kind"),
         }
+    }
+
+    // ── Error-case tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_lower_nested_epb_returns_error() {
+        let ir = IR {
+            category: IRCategory {
+                id: 48,
+                items: vec![IRItem {
+                    id: 10,
+                    frn: 1,
+                    layout: IRLayout::Fixed {
+                        bytes: 2,
+                        elements: vec![IRElement::EPB {
+                            content: Box::new(IRElement::EPB {
+                                content: Box::new(IRElement::Field {
+                                    name: "x".to_string(),
+                                    bits: 14,
+                                    is_string: false,
+                                }),
+                            }),
+                        }],
+                    },
+                }],
+            },
+        };
+        let result = lower(&ir);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CodegenError::NestedEpb));
+    }
+
+    #[test]
+    fn test_lower_epb_with_spare_returns_error() {
+        let ir = IR {
+            category: IRCategory {
+                id: 48,
+                items: vec![IRItem {
+                    id: 10,
+                    frn: 1,
+                    layout: IRLayout::Fixed {
+                        bytes: 1,
+                        elements: vec![IRElement::EPB {
+                            // EPB wrapping a Spare — invalid IR, cannot be produced by transformer
+                            content: Box::new(IRElement::Spare { bits: 7 }),
+                        }],
+                    },
+                }],
+            },
+        };
+        let result = lower(&ir);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CodegenError::EpbContainsSpare));
+    }
+
+    #[test]
+    fn test_lower_nested_compound_returns_error() {
+        let ir = IR {
+            category: IRCategory {
+                id: 48,
+                items: vec![IRItem {
+                    id: 10,
+                    frn: 1,
+                    layout: IRLayout::Compound {
+                        sub_items: vec![IRSubItem {
+                            index: 1,
+                            layout: IRLayout::Compound { sub_items: vec![] },
+                        }],
+                    },
+                }],
+            },
+        };
+        let result = lower(&ir);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), CodegenError::NestedCompound));
     }
 }

@@ -101,6 +101,6 @@ fn generate_code(xml_content: &str) -> Result<String, String> {
 
     let ir = to_ir(category).map_err(|e| e.to_string())?;
 
-    let tokens = generate(&ir);
+    let tokens = generate(&ir).map_err(|e| e.to_string())?;
     Ok(tokens.to_string())
 }

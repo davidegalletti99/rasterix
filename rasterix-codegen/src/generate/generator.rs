@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
+use crate::error::CodegenError;
 use crate::transform::{lowerer, ir::IR, lower_ir::LoweredIR};
 use super::{item_gen::generate_item, record_gen::generate_record, datablock_gen::generate_datablock};
 
@@ -21,9 +22,9 @@ use super::{item_gen::generate_item, record_gen::generate_record, datablock_gen:
 /// # Returns
 ///
 /// A TokenStream containing the complete generated module.
-pub fn generate(ir: &IR) -> TokenStream {
-    let lowered = lowerer::lower(ir);
-    generate_from_lowered(&lowered)
+pub fn generate(ir: &IR) -> Result<TokenStream, CodegenError> {
+    let lowered = lowerer::lower(ir)?;
+    Ok(generate_from_lowered(&lowered))
 }
 
 fn generate_from_lowered(lowered: &LoweredIR) -> TokenStream {
@@ -96,7 +97,7 @@ mod tests {
             },
         };
 
-        let result = generate(&ir);
+        let result = generate(&ir).expect("generate should succeed");
         let code = result.to_string();
 
         // Check for imports (quote! adds spaces around :: and braces)

@@ -46,8 +46,12 @@ impl Builder for RustBuilder {
             ))?;
 
         // Generate Rust code
-        let tokens = generate(&ir);
-        
+        let tokens = generate(&ir)
+            .map_err(|e| std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to generate code: {e}")
+            ))?;
+
         Ok(tokens.to_string())
     }
 }
