@@ -2,6 +2,19 @@ use crate::error::CodegenError;
 use crate::parse::xml_model::*;
 use crate::transform::ir::*;
 
+/// Transforms the XML model into the intermediate representation (IR).
+///
+/// Converts the raw deserialized XML into a validated, normalized IR ready
+/// for code generation.
+///
+/// # Errors
+///
+/// - [`CodegenError::InvalidFieldType`] — a field has a type other than `"string"` or `"numeric"`
+/// - [`CodegenError::InvalidCounter`] — a repetitive item's counter attribute is not a valid integer
+/// - [`CodegenError::InvalidEnumValue`] — an enum variant's value attribute does not fit in `u8`
+/// - [`CodegenError::BitCountMismatch`] — element bits do not sum to the declared byte size
+/// - [`CodegenError::ExtendedByteMismatch`] — declared byte count differs from the number of part groups
+/// - [`CodegenError::PartGroupBitMismatch`] — a part group's elements do not sum to 7 data bits
 pub fn to_ir(cat: Category) -> Result<IR, CodegenError> {
     let ir_category = to_ir_category(cat)?;
     for item in &ir_category.items {
