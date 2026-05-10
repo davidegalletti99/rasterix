@@ -1,8 +1,10 @@
 //! Intermediate Representation (IR) for ASTERIX code generation.
-//! 
+//!
 //! The IR is a normalized, validated representation of the XML input that is
 //! easier to work with during code generation. It has been validated for
 //! correctness (e.g., bit counts match byte sizes).
+
+use crate::error::CodegenError;
 
 /// Top-level IR structure representing a complete ASTERIX category.
 #[derive(Debug)]
@@ -202,56 +204,66 @@ impl IRElement {
 
 impl IRLayout {
     /// Validates that the total bit count matches the declared byte size.
-    /// 
-    /// Panics if validation fails (build-time error).
-    pub fn validate(&self) {
+    ///
+    /// Returns an error if validation fails.
+    pub fn validate(&self, context: &str) -> Result<(), CodegenError> {
         match self {
-            IRLayout::Fixed { bytes, elements } 
+            IRLayout::Fixed { bytes, elements }
             | IRLayout::Explicit { bytes, elements } => {
-                let total_bits: usize = elements.iter()
-                    .map(|e| e.bit_size()).sum();
+                let total_bits: usize = elements.iter().map(|e| e.bit_size()).sum();
                 let expected_bits = bytes * 8;
-                
-                assert_eq!(
-                    total_bits, expected_bits,
-                    "Bit count mismatch: Fixed element use {total_bits} bits but {bytes} bytes = {expected_bits} bits"
-                );
-            }
-            
-            IRLayout::Extended { bytes, part_groups } => {
-                let layout_bytes =  part_groups.len();
-                assert_eq!(*bytes, layout_bytes, 
-                    "Byte count mismatch: Extended element declared {} bytes but defines {} parts = {} bytes", *bytes, layout_bytes, layout_bytes);
-                for group in part_groups {
-                    let total_bits: usize = group.elements.iter()
-                        .map(|e| e.bit_size()).sum();
-                    let expected_bits = 7;
-                    
-                    assert_eq!(
-                        total_bits, expected_bits,
-                        "Part group {} has {} bits but should have {} bits (7 data + 1 FX)",
-                        group.index, total_bits, expected_bits
-                    );
+                if total_bits != expected_bits {
+                    return Err(CodegenError::BitCountMismatch {
+                        context: context.to_string(),
+                        bytes: *bytes,
+                        expected_bits,
+                        actual_bits: total_bits,
+                    });
                 }
             }
-            
-            IRLayout::Repetitive { bytes, elements, .. } => {
-                let total_bits: usize = elements.iter()
-                    .map(|e| e.bit_size()).sum();
-                let expected_bits = bytes * 8;
-                
-                assert_eq!(
-                    total_bits, expected_bits,
-                    "Repetitive item: elements use {total_bits} bits but {bytes} bytes = {expected_bits} bits"
-                );
+
+            IRLayout::Extended { bytes, part_groups } => {
+                let actual_groups = part_groups.len();
+                if *bytes != actual_groups {
+                    return Err(CodegenError::ExtendedByteMismatch {
+                        context: context.to_string(),
+                        declared: *bytes,
+                        actual_groups,
+                    });
+                }
+                for group in part_groups {
+                    let total_bits: usize = group.elements.iter().map(|e| e.bit_size()).sum();
+                    if total_bits != 7 {
+                        return Err(CodegenError::PartGroupBitMismatch {
+                            context: context.to_string(),
+                            index: group.index,
+                            actual: total_bits,
+                        });
+                    }
+                }
             }
-            
+
+            IRLayout::Repetitive { bytes, elements, .. } => {
+                let total_bits: usize = elements.iter().map(|e| e.bit_size()).sum();
+                let expected_bits = bytes * 8;
+                if total_bits != expected_bits {
+                    return Err(CodegenError::BitCountMismatch {
+                        context: context.to_string(),
+                        bytes: *bytes,
+                        expected_bits,
+                        actual_bits: total_bits,
+                    });
+                }
+            }
+
             IRLayout::Compound { sub_items } => {
-                // Validate each sub-item recursively
                 for sub_item in sub_items {
-                    sub_item.layout.validate();
+                    sub_item.layout.validate(
+                        &format!("{context} sub-item {}", sub_item.index)
+                    )?;
                 }
             }
         }
+        Ok(())
     }
 }

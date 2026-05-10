@@ -14,7 +14,7 @@ use test_utils::{
 fn generate_from_fixture(category: &str, filename: &str) -> String {
     let xml = load_fixture(category, filename);
     let parsed = parse_category(&xml).expect("Failed to parse XML fixture");
-    let ir = to_ir(parsed);
+    let ir = to_ir(parsed).expect("Failed to transform IR");
     let tokens = generate(&ir);
     tokens.to_string()
 }

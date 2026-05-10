@@ -39,7 +39,11 @@ impl Builder for RustBuilder {
             ))?;
 
         // Transform to IR (validates at this stage)
-        let ir = to_ir(category);
+        let ir = to_ir(category)
+            .map_err(|e| std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to transform IR: {e}")
+            ))?;
 
         // Generate Rust code
         let tokens = generate(&ir);
