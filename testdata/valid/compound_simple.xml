@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="100" frn="0">
+    <item id="100" frn="1">
         <compound>
             <fixed bytes="1">
                 <field name="flags" bits="8"/>

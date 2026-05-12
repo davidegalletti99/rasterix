@@ -4,6 +4,7 @@
 //! structures into the intermediate representation (IR) and validates
 //! the resulting structures.
 
+use rasterix_codegen::error::CodegenError;
 use rasterix_codegen::parse::parser::parse_category;
 use rasterix_codegen::transform::ir::*;
 use rasterix_codegen::transform::transformer::to_ir;
@@ -13,7 +14,7 @@ use test_utils::load_fixture;
 fn build_ir_from_fixture(category: &str, filename: &str) -> IR {
     let xml = load_fixture(category, filename);
     let parsed = parse_category(&xml).expect("Failed to parse XML fixture");
-    to_ir(parsed)
+    to_ir(parsed).expect("Failed to transform IR")
 }
 
 // ============================================================================
@@ -27,7 +28,7 @@ fn transform_simple_fixed_to_ir() {
     assert_eq!(ir.category.id, 1);
     assert_eq!(ir.category.items.len(), 1);
     assert_eq!(ir.category.items[0].id, 10);
-    assert_eq!(ir.category.items[0].frn, 0);
+    assert_eq!(ir.category.items[0].frn, 1);
 }
 
 #[test]
@@ -86,9 +87,9 @@ fn transform_compound_layout() {
         IRLayout::Compound { sub_items } => {
             assert!(!sub_items.is_empty());
 
-            // Check sub-item indices
+            // Check sub-item indices (1-indexed per ASTERIX standard)
             for (i, sub_item) in sub_items.iter().enumerate() {
-                assert_eq!(sub_item.index, i);
+                assert_eq!(sub_item.index, i + 1);
             }
         }
         _ => panic!("Expected Compound layout"),
@@ -195,15 +196,24 @@ fn transform_spare_element() {
 // ============================================================================
 
 #[test]
-#[should_panic(expected = "Bit count mismatch")]
 fn validation_rejects_bit_mismatch() {
-    let _ = build_ir_from_fixture("invalid", "bit_mismatch.xml");
+    let xml = load_fixture("invalid", "bit_mismatch.xml");
+    let parsed = parse_category(&xml).expect("Failed to parse XML fixture");
+    let result = to_ir(parsed);
+    assert!(result.is_err());
+    assert!(matches!(result.unwrap_err(), CodegenError::BitCountMismatch { .. }));
 }
 
 #[test]
-#[should_panic(expected = "Part group")]
 fn validation_rejects_extended_bit_mismatch() {
-    let _ = build_ir_from_fixture("invalid", "extended_bit_mismatch.xml");
+    let xml = load_fixture("invalid", "extended_bit_mismatch.xml");
+    let parsed = parse_category(&xml).expect("Failed to parse XML fixture");
+    let result = to_ir(parsed);
+    assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        CodegenError::PartGroupBitMismatch { .. } | CodegenError::ExtendedByteMismatch { .. }
+    ));
 }
 
 // ============================================================================

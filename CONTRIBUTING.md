@@ -85,8 +85,10 @@ cargo fmt --all
 ### Linting
 
 ```bash
-cargo clippy --workspace --all-targets
+cargo clippy --workspace -- -D warnings
 ```
+
+The `-D warnings` flag treats every Clippy warning as a compile error. PRs must pass this check with zero warnings.
 
 ### Documentation
 
@@ -153,20 +155,32 @@ The core crate should remain minimal and dependency-free:
 3. Add comprehensive unit tests
 4. Document all public APIs
 
+## Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format: `type: short description` (lowercase, no trailing period). Examples:
+
+```
+feat(codegen): add support for compound items
+fix(core): correct bit alignment in BitWriter
+docs: update XML schema reference
+```
+
+Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci/cd`.
+
 ## Pull Request Process
 
 1. **Fork** the repository
 2. **Create a branch** for your feature/fix
 3. **Make changes** following the guidelines above
 4. **Run tests**: `cargo test --workspace`
-5. **Run lints**: `cargo clippy --workspace`
+5. **Run lints**: `cargo clippy --workspace -- -D warnings`
 6. **Format code**: `cargo fmt --all`
 7. **Submit PR** with clear description of changes
 
 ### PR Checklist
 
 - [ ] Tests pass (`cargo test --workspace`)
-- [ ] No clippy warnings (`cargo clippy --workspace`)
+- [ ] No clippy warnings (`cargo clippy --workspace -- -D warnings`)
 - [ ] Code is formatted (`cargo fmt --all`)
 - [ ] Documentation is updated if needed
 - [ ] CHANGELOG is updated for user-facing changes

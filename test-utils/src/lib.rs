@@ -100,8 +100,7 @@ pub fn assert_code_not_contains(generated: &str, forbidden_fragments: &[&str]) {
     for fragment in forbidden_fragments {
         assert!(
             !generated.contains(fragment),
-            "Generated code contains forbidden fragment: '{}'",
-            fragment
+            "Generated code contains forbidden fragment: '{fragment}'"
         );
     }
 }
@@ -133,13 +132,6 @@ pub fn assert_normalized_eq(generated: &str, expected: &str, fixture_name: &str)
         &generated.chars().take(500).collect::<String>(),
         &expected.chars().take(500).collect::<String>()
     );
-}
-
-/// Returns the workspace root directory.
-fn workspace_root() -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // test-utils is directly under workspace root
-    manifest_dir.parent().unwrap().to_path_buf()
 }
 
 /// Creates a temporary test file and returns its path.

@@ -1,4 +1,4 @@
-use std::io::{self, Read, Write};
+use std::{io::{self, Read, Write}};
 
 /// ASTERIX Field Specification (FSPEC) bitmap.
 ///
@@ -22,6 +22,13 @@ use std::io::{self, Read, Write};
 #[derive(Debug, Clone)]
 pub struct Fspec {
     bytes: Vec<u8>,
+}
+
+impl Default for Fspec {
+    /// Creates a default FSPEC with a single byte initialised to `0x00`.
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Fspec {

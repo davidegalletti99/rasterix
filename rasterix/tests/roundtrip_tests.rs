@@ -409,8 +409,8 @@ fn roundtrip_compound_all_subitems() {
     use compound_simple::cat001::*;
 
     let original = Item100 {
-        sub0: Some(Item100Sub0 { flags: 10 }),
-        sub1: Some(Item100Sub1 { data: 20 }),
+        sub1: Some(Item100Sub1 { flags: 10 }),
+        sub2: Some(Item100Sub2 { data: 20 }),
     };
 
     let mut buffer = Vec::new();
@@ -431,8 +431,8 @@ fn roundtrip_compound_partial_subitems() {
     use compound_simple::cat001::*;
 
     let original = Item100 {
-        sub0: Some(Item100Sub0 { flags: 10 }),
-        sub1: None,
+        sub1: Some(Item100Sub1 { flags: 10 }),
+        sub2: None,
     };
 
     let mut buffer = Vec::new();

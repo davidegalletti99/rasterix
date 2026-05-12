@@ -65,16 +65,17 @@ For more control over the generation process:
 use rasterix_codegen::parse::parser::parse_category;
 use rasterix_codegen::transform::transformer::to_ir;
 use rasterix_codegen::generate::generate;
+use rasterix_codegen::CodegenError;
 
 // Parse XML
 let xml = std::fs::read_to_string("cat048.xml")?;
 let category = parse_category(&xml)?;
 
 // Transform to IR (validates structure)
-let ir = to_ir(category);
+let ir = to_ir(category)?;
 
 // Generate Rust code
-let tokens = generate(&ir);
+let tokens = generate(&ir)?;
 let code = tokens.to_string();
 ```
 
@@ -105,7 +106,7 @@ Converts parsed XML to an Intermediate Representation:
 use rasterix_codegen::transform::transformer::to_ir;
 use rasterix_codegen::transform::ir::*;
 
-let ir = to_ir(parsed_category);
+let ir = to_ir(parsed_category)?;
 // ir.category_id, ir.items, etc.
 ```
 
@@ -116,7 +117,7 @@ Produces Rust source code from IR:
 ```rust
 use rasterix_codegen::generate::generate;
 
-let tokens = generate(&ir);
+let tokens = generate(&ir)?;
 let code = tokens.to_string();
 ```
 
@@ -126,6 +127,27 @@ Generated code includes:
 - Enum types with `Unknown` variant
 - `Decode` and `Encode` trait implementations
 - Documentation comments
+
+## Error Handling
+
+All public functions return `Result<_, CodegenError>`. The [`CodegenError`] enum covers every failure that can occur in the pipeline:
+
+| Variant | When it occurs |
+|---------|----------------|
+| `Io` | File read, write, or directory operation failed |
+| `Parse` | XML input is malformed or doesn't match the expected schema |
+| `InvalidFieldType` | A `<field>` has a `type` attribute other than `"string"` or `"numeric"` |
+| `InvalidCounter` | A `<repetitive>` item's counter value is not a valid integer |
+| `InvalidEnumValue` | An `<enum>` variant's `value` attribute is not a valid integer |
+| `BitCountMismatch` | Declared byte count doesn't match the sum of element bit widths |
+| `ExtendedByteMismatch` | Declared byte count for an `<extended>` item doesn't match its part groups |
+| `PartGroupBitMismatch` | A part group in an `<extended>` item doesn't have exactly 7 data bits |
+| `InvalidPath` | A file path contains non-UTF-8 bytes |
+| `NestedEpb` | An EPB element contains another EPB element |
+| `EpbContainsSpare` | An EPB element wraps a `<spare>` element |
+| `NestedCompound` | A `<compound>` item contains another `<compound>` item |
+
+All variants implement `std::error::Error` and produce human-readable messages including the item ID and context when relevant (e.g. `"I048: bit count mismatch — declared 2 bytes (16 bits) but elements use 8 bits"`).
 
 ## Supported XML Elements
 
@@ -149,6 +171,7 @@ See [XML_SCHEMA.md](../XML_SCHEMA.md) for complete documentation.
 
 - `quick-xml` - XML parsing
 - `serde` - Deserialization
+- `thiserror` - Typed error enum derive
 - `quote` / `proc-macro2` - Rust code generation
 - `syn` - Rust syntax utilities
 

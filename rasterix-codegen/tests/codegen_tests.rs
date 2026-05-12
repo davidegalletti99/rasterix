@@ -14,8 +14,8 @@ use test_utils::{
 fn generate_from_fixture(category: &str, filename: &str) -> String {
     let xml = load_fixture(category, filename);
     let parsed = parse_category(&xml).expect("Failed to parse XML fixture");
-    let ir = to_ir(parsed);
-    let tokens = generate(&ir);
+    let ir = to_ir(parsed).expect("Failed to transform IR");
+    let tokens = generate(&ir).expect("Failed to generate code");
     tokens.to_string()
 }
 
@@ -138,10 +138,10 @@ fn generate_compound_code() {
     let code = generate_from_fixture("valid", "compound_simple.xml");
 
     assert_code_contains(&code, &[
-        "Item100Sub0",
         "Item100Sub1",
-        "pub sub0 : Option",
+        "Item100Sub2",
         "pub sub1 : Option",
+        "pub sub2 : Option",
     ]);
 }
 

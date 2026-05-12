@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="120" frn="0">
+    <item id="120" frn="1">
         <fixed bytes="4">
             <field name="field1" bits="4"/>
             <epb>

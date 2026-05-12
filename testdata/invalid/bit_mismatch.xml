@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="10" frn="0">
+    <item id="10" frn="1">
         <!-- Bit mismatch: 2 bytes = 16 bits, but only 12 bits defined -->
         <fixed bytes="2">
             <field name="sac" bits="8"/>

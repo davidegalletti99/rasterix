@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="60" frn="0">
+    <item id="60" frn="1">
         <explicit bytes="4">
             <field name="altitude" bits="16"/>
             <field name="speed" bits="16"/>

@@ -81,29 +81,7 @@ pub struct LoweredSubItem {
     pub fspec_byte: usize,
     pub fspec_bit: u8,
     pub enums: Vec<LoweredEnum>,
-    pub kind: LoweredSubItemKind,
-}
-
-/// Structural kind of a compound sub-item (no nested Compound).
-#[derive(Debug)]
-pub enum LoweredSubItemKind {
-    Simple {
-        is_explicit: bool,
-        byte_size: usize,
-        fields: Vec<FieldDescriptor>,
-        decode_ops: Vec<DecodeOp>,
-        encode_ops: Vec<EncodeOp>,
-    },
-    Extended {
-        parts: Vec<LoweredPart>,
-    },
-    Repetitive {
-        element_type_name: Ident,
-        counter_bytes: usize,
-        fields: Vec<FieldDescriptor>,
-        decode_ops: Vec<DecodeOp>,
-        encode_ops: Vec<EncodeOp>,
-    },
+    pub kind: LoweredItemKind,
 }
 
 /// A pre-resolved struct field descriptor.
