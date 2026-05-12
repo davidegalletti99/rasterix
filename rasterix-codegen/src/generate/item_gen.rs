@@ -44,7 +44,7 @@ fn generate_sub_item_struct(sub: &LoweredSubItem) -> TokenStream {
         LoweredItemKind::Repetitive { element_type_name, fields, .. } => {
             generate_repetitive_struct(&sub.struct_name, element_type_name, fields)
         }
-        LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
+        LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
     }
 }
 
@@ -57,7 +57,7 @@ fn generate_sub_item_decode(sub: &LoweredSubItem) -> TokenStream {
         LoweredItemKind::Repetitive { element_type_name, counter_bytes, decode_ops, fields, .. } => {
             generate_repetitive_decode(&sub.struct_name, *counter_bytes, element_type_name, decode_ops, fields)
         }
-        LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
+        LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
     }
 }
 
@@ -68,7 +68,7 @@ fn generate_sub_item_encode(sub: &LoweredSubItem) -> TokenStream {
         LoweredItemKind::Repetitive { element_type_name, counter_bytes, encode_ops, .. } => {
             generate_repetitive_encode(&sub.struct_name, *counter_bytes, element_type_name, encode_ops)
         }
-        LoweredItemKind::Compound { .. } => panic!("Nested compounds not supported"),
+        LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
     }
 }
 
