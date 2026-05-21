@@ -65,6 +65,7 @@ pub fn generate_enum(lowered: &LoweredEnum) -> TokenStream {
 mod tests {
     use super::*;
     use quote::format_ident;
+    use test_utils::assert_code_contains;
     use crate::transform::lower_ir::LoweredEnumVariant;
 
     #[test]
@@ -81,12 +82,15 @@ mod tests {
         let result = generate_enum(&lowered);
         let code = result.to_string();
 
-        assert!(code.contains("pub enum TargetType"));
-        assert!(code.contains("Psr = 1u8"));
-        assert!(code.contains("Ssr = 2u8"));
-        assert!(code.contains("Combined = 3u8"));
-        assert!(code.contains("Unknown (u8)"));
-        assert!(code.contains("impl TryFrom < u8 > for TargetType"));
-        assert!(code.contains("impl From < TargetType > for u8"));
+        let expected_fragments = [
+            "pub enum TargetType",
+            "Psr = 1u8",
+            "Ssr = 2u8",
+            "Combined = 3u8",
+            "Unknown (u8)",
+            "impl TryFrom < u8 > for TargetType",
+            "impl From < TargetType > for u8",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 }

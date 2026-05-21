@@ -82,6 +82,7 @@ pub fn generate_extended_structs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_utils::assert_code_contains;
     use quote::format_ident;
 
     #[test]
@@ -93,7 +94,11 @@ mod tests {
 
         let result = generate_field(&field);
         let code = result.to_string();
-        assert!(code.contains("pub test_field : u8"));
+
+        let expected_fragments = [
+            "pub test_field : u8",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 
     #[test]
@@ -105,7 +110,10 @@ mod tests {
 
         let result = generate_field(&field);
         let code = result.to_string();
-        assert!(code.contains("pub optional_field : Option < u16 >"));
+        let expected_fragments = [
+            "pub optional_field : Option < u16 >",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 
     #[test]
@@ -117,7 +125,11 @@ mod tests {
 
         let result = generate_field(&field);
         let code = result.to_string();
-        assert!(code.contains("pub aircraft_id : String"));
+
+        let expected_fragments = [
+            "pub aircraft_id : String",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 
     #[test]
@@ -129,7 +141,11 @@ mod tests {
 
         let result = generate_field(&field);
         let code = result.to_string();
-        assert!(code.contains("pub callsign : Option < String >"));
+
+        let expected_fragments = [
+            "pub callsign : Option < String >",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 
     #[test]
@@ -147,8 +163,12 @@ mod tests {
 
         let result = generate_struct(&format_ident!("Item010"), &fields);
         let code = result.to_string();
-        assert!(code.contains("pub struct Item010"));
-        assert!(code.contains("pub sac : u8"));
-        assert!(code.contains("pub sic : u8"));
+        
+        let expected_fragments = [
+            "pub struct Item010",
+            "pub sac : u8",
+            "pub sic : u8",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 }

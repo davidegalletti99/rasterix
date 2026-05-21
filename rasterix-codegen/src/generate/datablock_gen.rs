@@ -126,6 +126,7 @@ pub fn generate_datablock(lowered: &LoweredIR) -> TokenStream {
 mod tests {
     use super::*;
     use quote::format_ident;
+    use test_utils::assert_code_contains;
     use crate::transform::lower_ir::{LoweredRecord, RecordEntry};
 
     #[test]
@@ -150,11 +151,14 @@ mod tests {
         let result = generate_datablock(&lowered);
         let code = result.to_string();
 
-        assert!(code.contains("pub struct DataBlock"));
-        assert!(code.contains("pub records : Vec < Record >"));
-        assert!(code.contains("pub const CATEGORY : u8 = 48u8"));
-        assert!(code.contains("impl Encode for DataBlock"));
-        assert!(code.contains("impl Decode for DataBlock"));
-        assert!(code.contains("impl Default for DataBlock"));
+        let expected_fragments = [
+            "pub struct DataBlock",
+            "pub records : Vec < Record >",
+            "pub const CATEGORY : u8 = 48u8",
+            "impl Encode for DataBlock",
+            "impl Decode for DataBlock",
+            "impl Default for DataBlock",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 }

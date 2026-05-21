@@ -89,30 +89,22 @@ pub fn to_pascal_case(name: &str) -> Ident {
 /// assert_eq!(to_snake_case("SSR"), format_ident!("ssr"));
 /// ```
 pub fn to_snake_case(name: &str) -> Ident {
-    let snake = name
-        .chars()
-        .enumerate()
-        .flat_map(|(i, c)| {
-            if i > 0 {
-                let prev = name.chars().nth(i - 1);
-                let next = name.chars().nth(i + 1);
-                if c.is_uppercase() && 
-                ((prev.is_some() && prev.unwrap().is_lowercase()) || 
-                (next.is_some() && next.unwrap().is_lowercase())) {
-                    vec!['_', c.to_ascii_lowercase()]
-                } else {
-                    
-                    vec![c.to_ascii_lowercase()]
-                }
+    let chars: Vec<char> = name.chars().collect();
+    let mut snake = String::with_capacity(name.len() + 4);
 
-            } else {
-                vec![c.to_ascii_lowercase()]
+    for (i, &c) in chars.iter().enumerate() {
+        if c.is_uppercase() && i > 0 {
+            let prev_is_lower = chars[i - 1].is_lowercase();
+            let next_is_lower = chars.get(i + 1).map_or(false, |n| n.is_lowercase());
+
+            if prev_is_lower || next_is_lower {
+                snake.push('_');
             }
-        })
-        .collect::<String>()
-        .replace('-', "_");
-    
-    format_ident!("{}", snake)
+        }
+        snake.push(c.to_ascii_lowercase());
+    }
+
+    format_ident!("{}", snake.replace('-', "_"))
 }
 
 /// Generates a unique type name for a nested structure.

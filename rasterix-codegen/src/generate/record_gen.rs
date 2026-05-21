@@ -114,6 +114,7 @@ fn generate_record_encode(record: &LoweredRecord) -> TokenStream {
 mod tests {
     use super::*;
     use quote::format_ident;
+    use test_utils::assert_code_contains;
     use crate::transform::lower_ir::RecordEntry;
 
     #[test]
@@ -136,13 +137,17 @@ mod tests {
             ],
         };
 
+        
         let result = generate_record(&record);
         let code = result.to_string();
 
-        assert!(code.contains("pub struct Record"));
-        assert!(code.contains("pub item010 : Option < Item010 >"));
-        assert!(code.contains("pub item020 : Option < Item020 >"));
-        assert!(code.contains("impl Decode for Record"));
-        assert!(code.contains("impl Encode for Record"));
+        let expected_fragments = vec![
+            "pub struct Record",
+            "pub item010 : Option < Item010 >",
+            "pub item020 : Option < Item020 >",
+            "impl Decode for Record",
+            "impl Encode for Record",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 }
