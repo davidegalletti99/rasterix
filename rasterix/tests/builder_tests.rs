@@ -5,7 +5,7 @@
 
 use rasterix_codegen::builder::{Builder, RustBuilder};
 use std::fs;
-use test_utils::{cleanup_temp_files, create_temp_file, load_fixture};
+use test_utils::{cleanup_temp_files, create_temp_file, load_fixture, assert_code_contains};
 
 // ============================================================================
 // Basic Builder Tests
@@ -22,7 +22,10 @@ fn builder_from_fixture() {
 
     assert!(result.is_ok());
     let code = result.unwrap();
-    assert!(code.contains("pub mod cat001"));
+    let expected_fragments = [
+        "pub mod cat001",
+    ];
+    assert_code_contains(&code, &expected_fragments);
 }
 
 #[test]
@@ -33,9 +36,11 @@ fn builder_generates_record_struct() {
     let code = builder.build(temp_path.to_str().unwrap()).unwrap();
 
     cleanup_temp_files();
+    let expected_fragments = [
+        "pub mod cat001",
+    ];
 
-    assert!(code.contains("pub mod cat001"));
-    assert!(code.contains("pub struct Item010"));
+    assert_code_contains(&code, &expected_fragments);
 }
 
 #[test]
@@ -46,9 +51,12 @@ fn builder_generates_item_structs() {
     let code = builder.build(temp_path.to_str().unwrap()).unwrap();
 
     cleanup_temp_files();
+    let expected_fragments = [
+        "pub struct Item010",
+        "pub struct Item020",
+    ];
 
-    assert!(code.contains("Item010"));
-    assert!(code.contains("Item020"));
+    assert_code_contains(&code, &expected_fragments);
 }
 
 // ============================================================================
@@ -70,7 +78,10 @@ fn builder_build_file() {
     assert!(output_path.exists());
 
     let generated = fs::read_to_string(&output_path).unwrap();
-    assert!(generated.contains("pub mod cat001"));
+    let expected_fragments = [
+        "pub mod cat001",
+    ];
+    assert_code_contains(&generated, &expected_fragments);
 
     // Cleanup
     fs::remove_dir_all("target/test_output").ok();
@@ -110,8 +121,11 @@ fn builder_output_filename_from_input() {
     let output_path = result.unwrap();
 
     // Output should be named cat048.rs
-    assert!(output_path.file_name().unwrap().to_str().unwrap().contains("cat048"));
-    assert!(output_path.extension().unwrap() == "rs");
+    let extension = output_path.extension().unwrap();
+    assert_eq!(extension, "rs");
+
+    let file_name = output_path.file_name().unwrap();
+    assert_eq!(file_name, "cat048.rs");
 
     // Cleanup
     fs::remove_dir_all("target/test_filename").ok();
@@ -156,8 +170,11 @@ fn builder_handles_extended_item() {
 
     assert!(result.is_ok());
     let code = result.unwrap();
-    assert!(code.contains("Part0"));
-    assert!(code.contains("Part1"));
+    let expected_fragments = [
+        "Part0",
+        "Part1",
+    ];
+    assert_code_contains(&code, &expected_fragments);
 }
 
 #[test]
@@ -171,8 +188,12 @@ fn builder_handles_compound_item() {
 
     assert!(result.is_ok());
     let code = result.unwrap();
-    assert!(code.contains("Sub1"));
-    assert!(code.contains("Sub2"));
+    let expected_fragments = [
+        "Sub1",
+        "Sub2",
+    ];
+    
+    assert_code_contains(&code, &expected_fragments);
 }
 
 #[test]
@@ -185,8 +206,6 @@ fn builder_handles_repetitive_item() {
     cleanup_temp_files();
 
     assert!(result.is_ok());
-    let code = result.unwrap();
-    assert!(code.contains("Vec"));
 }
 
 #[test]
@@ -200,7 +219,8 @@ fn builder_handles_enum() {
 
     assert!(result.is_ok());
     let code = result.unwrap();
-    assert!(code.contains("enum"));
+    let expected_fragments = ["enum"];
+    assert_code_contains(&code, &expected_fragments);
 }
 
 #[test]

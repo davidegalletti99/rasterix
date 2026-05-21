@@ -163,6 +163,7 @@ fn generate_compound_item(name: &Ident, sub_items: &[LoweredSubItem]) -> TokenSt
 mod tests {
     use super::*;
     use quote::format_ident;
+    use test_utils::assert_code_contains;
     use crate::transform::lower_ir::*;
 
     #[test]
@@ -196,11 +197,14 @@ mod tests {
 
         let result = generate_item(&item);
         let code = result.to_string();
-
-        assert!(code.contains("pub struct Item010"));
-        assert!(code.contains("pub sac : u8"));
-        assert!(code.contains("pub sic : u8"));
-        assert!(code.contains("impl Decode for Item010"));
-        assert!(code.contains("impl Encode for Item010"));
+        
+        let expected_fragments = vec![
+            "pub struct Item010",
+            "pub sac : u8",
+            "pub sic : u8",
+            "impl Decode for Item010",
+            "impl Encode for Item010",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 }

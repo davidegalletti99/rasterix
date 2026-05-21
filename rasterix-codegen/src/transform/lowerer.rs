@@ -60,14 +60,15 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKin
         }
         IRLayout::Extended { part_groups, .. } => {
             let parts = part_groups.iter()
-                .map(|group| -> Result<LoweredPart, CodegenError> { Ok(LoweredPart {
-                    index: group.index,
-                    struct_name: format_ident!("{}Part{}", parent_name, group.index),
-                    field_name: format_ident!("part{}", group.index),
-                    is_required: group.index == 0,
-                    fields: lower_fields(&group.elements)?,
-                    decode_ops: lower_element_ops_decode(&group.elements)?,
-                    encode_ops: lower_element_ops_encode(&group.elements)?,
+                .map(|group| -> Result<LoweredPart, CodegenError> { 
+                    Ok(LoweredPart {
+                        index: group.index,
+                        struct_name: format_ident!("{}Part{}", parent_name, group.index),
+                        field_name: format_ident!("part{}", group.index),
+                        is_required: group.index == 0,
+                        fields: lower_fields(&group.elements)?,
+                        decode_ops: lower_element_ops_decode(&group.elements)?,
+                        encode_ops: lower_element_ops_encode(&group.elements)?,
                 })})
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(LoweredItemKind::Extended { parts })

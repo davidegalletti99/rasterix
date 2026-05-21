@@ -67,55 +67,58 @@ fn generate_from_lowered(lowered: &LoweredIR) -> TokenStream {
 mod tests {
     use super::*;
     use crate::transform::ir::*;
+    use test_utils::assert_code_contains;
 
     #[test]
     fn test_generate_complete_module() {
+        let elements = vec![
+            IRElement::Field {
+                name: "sac".to_string(),
+                bits: 8,
+                is_string: false,
+            },
+            IRElement::Field {
+                name: "sic".to_string(),
+                bits: 8,
+                is_string: false,
+            },
+        ];
+        let items = vec![
+            IRItem {
+                id: 10,
+                frn: 1,
+                layout: IRLayout::Fixed {
+                    bytes: 2,
+                    elements,
+                },
+            },
+        ];
         let ir = IR {
             category: IRCategory {
                 id: 48,
-                items: vec![
-                    IRItem {
-                        id: 10,
-                        frn: 1,
-                        layout: IRLayout::Fixed {
-                            bytes: 2,
-                            elements: vec![
-                                IRElement::Field {
-                                    name: "sac".to_string(),
-                                    bits: 8,
-                                    is_string: false,
-                                },
-                                IRElement::Field {
-                                    name: "sic".to_string(),
-                                    bits: 8,
-                                    is_string: false,
-                                },
-                            ],
-                        },
-                    },
-                ],
+                items,
             },
         };
 
         let result = generate(&ir).expect("generate should succeed");
         let code = result.to_string();
 
-        // Check for imports (quote! adds spaces around :: and braces)
-        assert!(code.contains("use rasterix :: rcore"));
-        assert!(code.contains("Decode"));
-        assert!(code.contains("Encode"));
-
-        // Check for record
-        assert!(code.contains("pub struct Record"));
-
-        // Check for data block
-        assert!(code.contains("pub struct DataBlock"));
-        assert!(code.contains("impl Encode for DataBlock"));
-        assert!(code.contains("impl Decode for DataBlock"));
-
-        // Check for item
-        assert!(code.contains("pub struct Item010"));
-        assert!(code.contains("pub sac : u8"));
-        assert!(code.contains("pub sic : u8"));
+        let expected_fragments = [
+            // Check for imports (quote! adds spaces around :: and braces)
+            "use rasterix :: rcore",
+            "Decode",
+            "Encode",
+            // Check for record
+            "pub struct Record",
+            // Check for data block
+            "pub struct DataBlock",
+            "impl Encode for DataBlock",
+            "impl Decode for DataBlock",
+            // Check for item asd fields
+            "pub struct Item010",
+            "pub sac : u8",
+            "pub sic : u8",
+        ];
+        assert_code_contains(&code, &expected_fragments);
     }
 }
