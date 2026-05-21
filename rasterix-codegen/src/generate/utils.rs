@@ -95,7 +95,7 @@ pub fn to_snake_case(name: &str) -> Ident {
     for (i, &c) in chars.iter().enumerate() {
         if c.is_uppercase() && i > 0 {
             let prev_is_lower = chars[i - 1].is_lowercase();
-            let next_is_lower = chars.get(i + 1).map_or(false, |n| n.is_lowercase());
+            let next_is_lower = chars.get(i + 1).is_some_and(|n| n.is_lowercase());
 
             if prev_is_lower || next_is_lower {
                 snake.push('_');
