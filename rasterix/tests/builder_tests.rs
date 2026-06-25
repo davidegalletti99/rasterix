@@ -3,7 +3,7 @@
 //! These tests verify that the high-level Builder API correctly
 //! orchestrates the parsing, transformation, and code generation pipeline.
 
-use rasterix_codegen::builder::{Builder, RustBuilder};
+use rasterix_codegen::builder::RustBuilder;
 use std::fs;
 use test_utils::{cleanup_temp_files, create_temp_file, load_fixture, assert_code_contains};
 

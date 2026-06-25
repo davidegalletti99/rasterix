@@ -6,8 +6,15 @@ use crate::{
     CodegenError,
 };
 
-/// Trait for building ASTERIX code from XML definitions.
-pub trait Builder {
+/// Rust code generator builder.
+pub struct RustBuilder;
+
+impl RustBuilder {
+    /// Creates a new RustBuilder instance.
+    pub fn new() -> Self {
+        Self
+    }
+
     /// Builds Rust code from an XML file.
     ///
     /// # Arguments
@@ -23,14 +30,7 @@ pub trait Builder {
     /// Returns [`CodegenError::Io`] if the file cannot be read.
     /// Returns [`CodegenError::Parse`] if the XML is malformed.
     /// Returns other [`CodegenError`] variants if the definition fails validation or lowering.
-    fn build(&self, file_path: &str) -> Result<String, CodegenError>;
-}
-
-/// Rust code generator builder.
-pub struct RustBuilder;
-
-impl Builder for RustBuilder {
-    fn build(&self, file_path: &str) -> Result<String, CodegenError> {
+    pub fn build(&self, file_path: &str) -> Result<String, CodegenError> {
         // Read XML file
         let xml = fs::read_to_string(file_path)
             .map_err(|source| CodegenError::Io { path: file_path.to_string(), source })?;
@@ -46,14 +46,7 @@ impl Builder for RustBuilder {
 
         Ok(tokens.to_string())
     }
-}
 
-impl RustBuilder {
-    /// Creates a new RustBuilder instance.
-    pub fn new() -> Self {
-        Self
-    }
-    
     /// Builds code from a single file and writes to output directory.
     ///
     /// # Arguments
@@ -67,7 +60,7 @@ impl RustBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`CodegenError`] from [`Builder::build`] if generation fails.
+    /// Returns [`CodegenError`] from [`build`](Self::build) if generation fails.
     /// Returns [`CodegenError::Io`] if the output directory cannot be created or the file cannot be written.
     pub fn build_file(
         &self,

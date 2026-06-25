@@ -9,7 +9,7 @@
 //! # Quick start
 //!
 //! ```no_run
-//! use rasterix_codegen::builder::{Builder, RustBuilder};
+//! use rasterix_codegen::builder::RustBuilder;
 //!
 //! let code = RustBuilder::new().build("cat048.xml")?;
 //! std::fs::write("cat048.rs", code)?;
