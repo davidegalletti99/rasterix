@@ -193,13 +193,6 @@ impl IRElement {
             }
         }
     }
-    
-    /// Returns true if this element appears in the generated struct.
-    /// 
-    /// Spare bits do not appear in the struct.
-    pub fn is_visible(&self) -> bool {
-        !matches!(self, IRElement::Spare { .. })
-    }
 }
 
 impl IRLayout {

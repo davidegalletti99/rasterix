@@ -57,14 +57,6 @@ pub fn load_fixture(category: &str, filename: &str) -> String {
         .unwrap_or_else(|e| panic!("Failed to read fixture {}: {}", path.display(), e))
 }
 
-/// Normalizes whitespace in code for comparison.
-///
-/// This is useful for comparing generated code where formatting may differ
-/// (e.g., quote! macro output vs manually formatted code).
-pub fn normalize_whitespace(code: &str) -> String {
-    code.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
 /// Asserts that generated code contains all expected fragments.
 ///
 /// # Arguments
@@ -103,35 +95,6 @@ pub fn assert_code_not_contains(generated: &str, forbidden_fragments: &[&str]) {
             "Generated code contains forbidden fragment: '{fragment}'"
         );
     }
-}
-
-/// Asserts that two code strings are equal after normalizing whitespace.
-///
-/// This handles differences from quote! formatting vs stored expected output.
-///
-/// # Arguments
-///
-/// * `generated` - The generated code
-/// * `expected` - The expected code
-/// * `fixture_name` - Name of the fixture (for error messages)
-///
-/// # Panics
-///
-/// Panics with a diff-like message if the codes don't match.
-pub fn assert_normalized_eq(generated: &str, expected: &str, fixture_name: &str) {
-    let gen_normalized = normalize_whitespace(generated);
-    let exp_normalized = normalize_whitespace(expected);
-
-    assert_eq!(
-        gen_normalized,
-        exp_normalized,
-        "Generated code for '{}' doesn't match expected output.\n\
-         --- Generated (first 500 chars) ---\n{}\n\
-         --- Expected (first 500 chars) ---\n{}",
-        fixture_name,
-        &generated.chars().take(500).collect::<String>(),
-        &expected.chars().take(500).collect::<String>()
-    );
 }
 
 /// Creates a temporary test file and returns its path.
@@ -193,13 +156,6 @@ pub fn cleanup_temp_files() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_normalize_whitespace() {
-        let input = "fn   foo()  {\n    bar();\n}";
-        let expected = "fn foo() { bar(); }";
-        assert_eq!(normalize_whitespace(input), expected);
-    }
 
     #[test]
     fn test_assert_code_contains_pass() {
