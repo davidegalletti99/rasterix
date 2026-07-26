@@ -7,8 +7,6 @@
 //! **IMPORTANT**: These tests use REAL GENERATED CODE, not manual implementations.
 //! If the code generator changes, these tests will reflect those changes.
 
-mod roundtrip;
-
 // Include the generated modules from build.rs
 // This code is generated from testdata/valid/*.xml at compile time
 include!(concat!(env!("OUT_DIR"), "/generated/mod.rs"));

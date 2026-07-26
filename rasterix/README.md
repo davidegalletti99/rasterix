@@ -33,8 +33,8 @@ use rasterix::rcore::{BitReader, BitWriter, Decode, Encode, Fspec, DecodeError};
 Re-exports `rasterix-codegen` for generating Rust code from XML:
 
 ```rust
-use rasterix::codegen::builder::{Builder, RustBuilder};
-use rasterix::codegen::parse::parser::parse_category;
+use rasterix::codegen::builder;
+use rasterix::codegen::parse::parse_category;
 use rasterix::codegen::transform::transformer::to_ir;
 use rasterix::codegen::generate::generate;
 ```
@@ -59,12 +59,11 @@ rasterix = "0.1"
 
 ```rust
 use rasterix::{BitReader, BitWriter, Decode, Encode, DecodeError};
-use rasterix::codegen::builder::{Builder, RustBuilder};
+use rasterix::codegen::builder;
 use std::io::Cursor;
 
 // Generate code from XML
-let builder = RustBuilder::new();
-let code = builder.build("cat048.xml")?;
+let code = builder::build("cat048.xml")?;
 
 // Use generated code (after including in your project)
 // let record = cat48::Record::decode(&mut reader)?;

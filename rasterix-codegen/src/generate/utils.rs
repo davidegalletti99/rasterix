@@ -107,32 +107,6 @@ pub fn to_snake_case(name: &str) -> Ident {
     format_ident!("{}", snake.replace('-', "_"))
 }
 
-/// Generates a unique type name for a nested structure.
-/// 
-/// # Arguments
-/// 
-/// * `parent_name` - The name of the parent item/struct
-/// * `suffix` - A descriptive suffix (e.g., "Byte0", "Sub1")
-/// 
-/// # Returns
-/// 
-/// A unique type name combining the parent and suffix.
-/// 
-/// # Examples
-///
-/// ```
-/// use quote::format_ident;
-/// use rasterix_codegen::generate::utils::nested_type_name;
-/// assert_eq!(
-///     nested_type_name("Item020", "Byte0"),
-///     format_ident!("Item020Byte0")
-/// );
-/// ```
-#[allow(unused)]
-pub fn nested_type_name(parent_name: &str, suffix: &str) -> Ident {
-    format_ident!("{}{}", parent_name, suffix)
-}
-
 /// Calculates the FSPEC byte and bit position from an FRN.
 ///
 /// ASTERIX FSPEC layout (each byte has 7 data bits + 1 FX bit):

@@ -40,47 +40,10 @@ fn to_ir_item(item: Item) -> Result<IRItem, CodegenError> {
 
 fn to_ir_item_structure(structure: ItemStructure) -> Result<IRLayout, CodegenError> {
     match structure {
-        ItemStructure::Fixed(simple) => Ok(IRLayout::Fixed {
-            bytes: simple.bytes,
-            elements: simple.elements.into_iter()
-                .map(to_ir_element)
-                .collect::<Result<Vec<_>, _>>()?,
-        }),
-
-        ItemStructure::Explicit(simple) => Ok(IRLayout::Explicit {
-            bytes: simple.bytes,
-            elements: simple.elements.into_iter()
-                .map(to_ir_element)
-                .collect::<Result<Vec<_>, _>>()?,
-        }),
-
-        ItemStructure::Extended(ext) => {
-            let part_groups = ext.part_groups
-                .into_iter()
-                .map(|group| {
-                    let elements = group.elements.into_iter()
-                        .map(to_ir_element)
-                        .collect::<Result<Vec<_>, CodegenError>>()?;
-                    Ok(IRPartGroup { index: group.index, elements })
-                })
-                .collect::<Result<Vec<_>, CodegenError>>()?;
-            Ok(IRLayout::Extended { bytes: ext.bytes, part_groups })
-        }
-
-        ItemStructure::Repetitive(rep) => {
-            let counter_bytes = rep.counter.parse::<usize>()
-                .map_err(|e| CodegenError::InvalidCounter {
-                    value: rep.counter.clone(),
-                    source: e,
-                })?;
-            Ok(IRLayout::Repetitive {
-                bytes: rep.bytes,
-                counter_bytes,
-                elements: rep.elements.into_iter()
-                    .map(to_ir_element)
-                    .collect::<Result<Vec<_>, CodegenError>>()?,
-            })
-        }
+        ItemStructure::Fixed(simple) => fixed_layout(simple),
+        ItemStructure::Explicit(simple) => explicit_layout(simple),
+        ItemStructure::Extended(ext) => extended_layout(ext),
+        ItemStructure::Repetitive(rep) => repetitive_layout(rep),
 
         ItemStructure::Compound(comp) => {
             let sub_items = comp.items
@@ -98,48 +61,41 @@ fn to_ir_item_structure(structure: ItemStructure) -> Result<IRLayout, CodegenErr
 
 fn to_ir_compoundable_item(item: CompoundableItem) -> Result<IRLayout, CodegenError> {
     match item {
-        CompoundableItem::Fixed(simple) => Ok(IRLayout::Fixed {
-            bytes: simple.bytes,
-            elements: simple.elements.into_iter()
-                .map(to_ir_element)
-                .collect::<Result<Vec<_>, _>>()?,
-        }),
-
-        CompoundableItem::Explicit(simple) => Ok(IRLayout::Explicit {
-            bytes: simple.bytes,
-            elements: simple.elements.into_iter()
-                .map(to_ir_element)
-                .collect::<Result<Vec<_>, _>>()?,
-        }),
-
-        CompoundableItem::Extended(ext) => {
-            let part_groups = ext.part_groups
-                .into_iter()
-                .map(|group| {
-                    let elements = group.elements.into_iter()
-                        .map(to_ir_element)
-                        .collect::<Result<Vec<_>, CodegenError>>()?;
-                    Ok(IRPartGroup { index: group.index, elements })
-                })
-                .collect::<Result<Vec<_>, CodegenError>>()?;
-            Ok(IRLayout::Extended { bytes: ext.bytes, part_groups })
-        }
-
-        CompoundableItem::Repetitive(rep) => {
-            let counter_bytes = rep.counter.parse::<usize>()
-                .map_err(|e| CodegenError::InvalidCounter {
-                    value: rep.counter.clone(),
-                    source: e,
-                })?;
-            Ok(IRLayout::Repetitive {
-                bytes: rep.bytes,
-                counter_bytes,
-                elements: rep.elements.into_iter()
-                    .map(to_ir_element)
-                    .collect::<Result<Vec<_>, _>>()?,
-            })
-        }
+        CompoundableItem::Fixed(simple) => fixed_layout(simple),
+        CompoundableItem::Explicit(simple) => explicit_layout(simple),
+        CompoundableItem::Extended(ext) => extended_layout(ext),
+        CompoundableItem::Repetitive(rep) => repetitive_layout(rep),
     }
+}
+
+fn to_ir_elements(elements: Vec<Element>) -> Result<Vec<IRElement>, CodegenError> {
+    elements.into_iter().map(to_ir_element).collect()
+}
+
+fn fixed_layout(simple: SimpleItem) -> Result<IRLayout, CodegenError> {
+    Ok(IRLayout::Fixed { bytes: simple.bytes, elements: to_ir_elements(simple.elements)? })
+}
+
+fn explicit_layout(simple: SimpleItem) -> Result<IRLayout, CodegenError> {
+    Ok(IRLayout::Explicit { bytes: simple.bytes, elements: to_ir_elements(simple.elements)? })
+}
+
+fn extended_layout(ext: ExtendedItem) -> Result<IRLayout, CodegenError> {
+    let part_groups = ext.part_groups
+        .into_iter()
+        .map(|group| Ok(IRPartGroup { index: group.index, elements: to_ir_elements(group.elements)? }))
+        .collect::<Result<Vec<_>, CodegenError>>()?;
+    Ok(IRLayout::Extended { bytes: ext.bytes, part_groups })
+}
+
+fn repetitive_layout(rep: RepetitiveItem) -> Result<IRLayout, CodegenError> {
+    let counter_bytes = rep.counter.parse::<usize>()
+        .map_err(|e| CodegenError::InvalidCounter { value: rep.counter.clone(), source: e })?;
+    Ok(IRLayout::Repetitive {
+        bytes: rep.bytes,
+        counter_bytes,
+        elements: to_ir_elements(rep.elements)?,
+    })
 }
 
 fn check_field_string_type(field: &Field) -> Result<bool, CodegenError> {

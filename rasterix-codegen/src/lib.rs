@@ -9,9 +9,9 @@
 //! # Quick start
 //!
 //! ```no_run
-//! use rasterix_codegen::builder::{Builder, RustBuilder};
+//! use rasterix_codegen::builder;
 //!
-//! let code = RustBuilder::new().build("cat048.xml")?;
+//! let code = builder::build("cat048.xml")?;
 //! std::fs::write("cat048.rs", code)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

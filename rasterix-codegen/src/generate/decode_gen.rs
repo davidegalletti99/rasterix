@@ -13,10 +13,7 @@ fn emit_decode_op(op: &DecodeOp) -> TokenStream {
         }
         DecodeOp::ReadEnum { name, bits, enum_type } => {
             quote! {
-                let #name = {
-                    let value = reader.read_bits(#bits)? as u8;
-                    #enum_type::try_from(value).unwrap()
-                };
+                let #name = #enum_type::from(reader.read_bits(#bits)? as u8);
             }
         }
         DecodeOp::ReadEpbField { name, bits, rust_type } => {
@@ -37,8 +34,7 @@ fn emit_decode_op(op: &DecodeOp) -> TokenStream {
                 let #name = {
                     let valid = reader.read_bits(1)? != 0;
                     if valid {
-                        let value = reader.read_bits(#bits)? as u8;
-                        Some(#enum_type::try_from(value).unwrap())
+                        Some(#enum_type::from(reader.read_bits(#bits)? as u8))
                     } else {
                         reader.read_bits(#bits)?; // Skip the value
                         None

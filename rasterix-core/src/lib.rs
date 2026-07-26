@@ -13,7 +13,6 @@
 //! | [`BitReader`] | Read individual bits from any [`std::io::Read`] source |
 //! | [`BitWriter`] | Write individual bits to any [`std::io::Write`] sink |
 //! | [`Fspec`] | ASTERIX Field Specification bitmap (variable-length) |
-//! | [`MemoryBuffer`] | Convenience in-memory buffer implementing both `Read` and `Write` |
 //! | [`DecodeError`] | Unified error type for encoding/decoding failures |
 //!
 //! ## Traits
@@ -40,13 +39,11 @@
 
 pub mod bit_reader;
 pub mod bit_writer;
-pub mod buffer;
 pub mod error;
 pub mod fspec;
 
 pub use bit_reader::BitReader;
 pub use bit_writer::BitWriter;
-pub use buffer::MemoryBuffer;
 pub use error::DecodeError;
 pub use fspec::Fspec;
 

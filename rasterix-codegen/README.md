@@ -23,19 +23,17 @@ XML Definition → Parse → Transform → Generate → Rust Code
 The simplest way to generate code:
 
 ```rust
-use rasterix_codegen::builder::{Builder, RustBuilder};
-
-let builder = RustBuilder::new();
+use rasterix_codegen::builder;
 
 // Generate code from a single file
-let code = builder.build("cat048.xml")?;
+let code = builder::build("cat048.xml")?;
 std::fs::write("cat048.rs", code)?;
 
 // Or build to a specific directory
-builder.build_file("cat048.xml", "src/generated/")?;
+builder::build_file("cat048.xml", "src/generated/")?;
 
 // Or process an entire directory
-builder.build_directory("definitions/", "src/generated/")?;
+builder::build_directory("definitions/", "src/generated/")?;
 ```
 
 ### Build Script Integration
@@ -43,16 +41,15 @@ builder.build_directory("definitions/", "src/generated/")?;
 For compile-time code generation, use in `build.rs`:
 
 ```rust
-use rasterix_codegen::builder::{Builder, RustBuilder};
+use rasterix_codegen::builder;
 use std::env;
 
 fn main() {
     println!("cargo:rerun-if-changed=definitions/");
 
     let out_dir = env::var("OUT_DIR").unwrap();
-    let builder = RustBuilder::new();
 
-    builder.build_file("definitions/cat048.xml", &out_dir)
+    builder::build_file("definitions/cat048.xml", &out_dir)
         .expect("Code generation failed");
 }
 ```
@@ -62,7 +59,7 @@ fn main() {
 For more control over the generation process:
 
 ```rust
-use rasterix_codegen::parse::parser::parse_category;
+use rasterix_codegen::parse::parse_category;
 use rasterix_codegen::transform::transformer::to_ir;
 use rasterix_codegen::generate::generate;
 use rasterix_codegen::CodegenError;
@@ -86,7 +83,7 @@ let code = tokens.to_string();
 Parses ASTERIX XML into Rust data structures:
 
 ```rust
-use rasterix_codegen::parse::parser::parse_category;
+use rasterix_codegen::parse::parse_category;
 use rasterix_codegen::parse::xml_model::*;
 
 let category = parse_category(xml_content)?;
@@ -173,7 +170,6 @@ See [XML_SCHEMA.md](../XML_SCHEMA.md) for complete documentation.
 - `serde` - Deserialization
 - `thiserror` - Typed error enum derive
 - `quote` / `proc-macro2` - Rust code generation
-- `syn` - Rust syntax utilities
 
 ## License
 

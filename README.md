@@ -64,17 +64,15 @@ rasterix = "0.1"  # If generating code at build time
 ### 2. Generate code using the Builder API
 
 ```rust
-use rasterix::codegen::builder::{Builder, RustBuilder};
+use rasterix::codegen::builder;
 
 fn main() -> std::io::Result<()> {
-    let builder = RustBuilder::new();
-
     // Generate from a single file
-    let code = builder.build("definitions/cat048.xml")?;
+    let code = builder::build("definitions/cat048.xml")?;
     std::fs::write("src/generated/cat048.rs", code)?;
 
     // Or generate from an entire directory
-    builder.build_directory("definitions/", "src/generated/")?;
+    builder::build_directory("definitions/", "src/generated/")?;
 
     Ok(())
 }
@@ -133,7 +131,7 @@ fn main() -> Result<(), DecodeError> {
 For automatic code generation at build time, add a `build.rs`:
 
 ```rust
-use rasterix::codegen::builder::{Builder, RustBuilder};
+use rasterix::codegen::builder;
 use std::env;
 use std::path::Path;
 
@@ -141,9 +139,8 @@ fn main() {
     println!("cargo:rerun-if-changed=definitions/");
 
     let out_dir = env::var("OUT_DIR").unwrap();
-    let builder = RustBuilder::new();
 
-    builder.build_file(
+    builder::build_file(
         "definitions/cat048.xml",
         &out_dir
     ).expect("Failed to generate code");
@@ -180,7 +177,7 @@ rasterix/
 │
 ├── rasterix-codegen/       # Code generation library
 │   └── src/
-│       ├── builder.rs      # High-level Builder API
+│       ├── builder.rs      # High-level build functions
 │       ├── parse/          # XML parsing
 │       ├── transform/      # IR transformation & validation
 │       └── generate/       # Rust code generation
@@ -331,7 +328,7 @@ The test suite includes:
 - **Transform tests** (18): IR transformation and validation
 - **Codegen tests** (22 integration + 27 unit): Code generation correctness
 - **Roundtrip tests** (31): Verify `decode(encode(value)) == value` using real generated code
-- **Builder tests** (14): High-level API tests
+- **Builder tests** (13): High-level API tests
 
 ## Contributing
 

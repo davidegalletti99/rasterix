@@ -53,7 +53,7 @@ fn main() {
         };
 
         // Generate Rust code using rasterix-codegen
-        match generate_code(&xml_content) {
+        match rasterix_codegen::builder::build_str(&xml_content) {
             Ok(code) => {
                 let output_path = generated_dir.join(format!("{module_name}.rs"));
 
@@ -77,30 +77,4 @@ fn main() {
     // Write the mod.rs file
     let mod_path = generated_dir.join("mod.rs");
     fs::write(&mod_path, &mod_content).unwrap();
-
-    // Write the path to generated dir for tests to find
-    let generated_path_file = Path::new(&out_dir).join("generated_path.txt");
-    fs::write(&generated_path_file, generated_dir.to_str().unwrap()).unwrap();
-}
-
-/// Generate Rust code from XML content using rasterix-codegen.
-fn generate_code(xml_content: &str) -> Result<String, String> {
-    // We need to use the codegen crate directly
-    // Since build.rs runs before the crate is compiled, we use a subprocess approach
-    // or inline the generation logic
-
-    // For simplicity, we'll inline the generation logic here
-    // This requires adding rasterix-codegen as a build dependency
-
-    use rasterix_codegen::parse::parser::parse_category;
-    use rasterix_codegen::transform::transformer::to_ir;
-    use rasterix_codegen::generate::generate;
-
-    let category = parse_category(xml_content)
-        .map_err(|e| format!("Parse error: {e}"))?;
-
-    let ir = to_ir(category).map_err(|e| e.to_string())?;
-
-    let tokens = generate(&ir).map_err(|e| e.to_string())?;
-    Ok(tokens.to_string())
 }

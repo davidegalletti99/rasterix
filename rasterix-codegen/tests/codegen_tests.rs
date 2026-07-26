@@ -4,7 +4,7 @@
 //! from the intermediate representation (IR).
 
 use rasterix_codegen::generate::generate;
-use rasterix_codegen::parse::parser::parse_category;
+use rasterix_codegen::parse::parse_category;
 use rasterix_codegen::transform::transformer::to_ir;
 use test_utils::{
     assert_code_contains, assert_code_not_contains, load_fixture,
@@ -98,7 +98,7 @@ fn generate_enum_code() {
         "Psr = 1u8",
         "Ssr = 2u8",
         "Unknown (u8)",
-        "impl TryFrom < u8 > for TargetType",
+        "impl From < u8 > for TargetType",
     ]);
 }
 

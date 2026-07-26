@@ -9,7 +9,6 @@ homepage = "https://github.com/davidegalletti99/rasterix"
 readme = "README.md"
 
 [dependencies]
-syn = "2.0.114"
 serde = { version = "1.0", features = ["derive"] }
 quick-xml = { version = "0.31", features = ["serialize"] }
 quote = "1.0"

@@ -5,7 +5,7 @@
 //! the resulting structures.
 
 use rasterix_codegen::error::CodegenError;
-use rasterix_codegen::parse::parser::parse_category;
+use rasterix_codegen::parse::parse_category;
 use rasterix_codegen::transform::ir::*;
 use rasterix_codegen::transform::transformer::to_ir;
 use test_utils::load_fixture;
