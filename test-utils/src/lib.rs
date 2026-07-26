@@ -73,7 +73,7 @@ pub fn assert_code_contains(generated: &str, expected_fragments: &[&str]) {
             generated.contains(fragment),
             "Generated code missing fragment: '{}'\n\nGenerated code (first 1000 chars):\n{}",
             fragment,
-            &generated.chars().take(1000).collect::<String>()
+            generated.chars().take(1000).collect::<String>()
         );
     }
 }
