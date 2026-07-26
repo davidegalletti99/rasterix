@@ -9,7 +9,7 @@ use std::path::PathBuf;
 /// Returns the path to the workspace-level testdata directory.
 ///
 /// This resolves the path relative to the workspace root, not the individual crate.
-pub fn testdata_dir() -> PathBuf {
+fn testdata_dir() -> PathBuf {
     // CARGO_MANIFEST_DIR points to the crate using this library,
     // so we need to find the workspace root by looking for testdata/
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -37,7 +37,7 @@ pub fn testdata_dir() -> PathBuf {
 ///
 /// * `category` - "valid" or "invalid"
 /// * `filename` - Name of the XML file (e.g., "simple_fixed.xml")
-pub fn fixture_path(category: &str, filename: &str) -> PathBuf {
+fn fixture_path(category: &str, filename: &str) -> PathBuf {
     testdata_dir().join(category).join(filename)
 }
 
