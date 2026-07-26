@@ -19,8 +19,7 @@ fn ascii_to_icao6(c: u8) -> u8 {
 /// byte (padded with zero bits on the right).
 ///
 /// The struct also implements [`Write`] for byte-level access, but only when
-/// the internal bit buffer is empty (i.e. [`is_byte_aligned`](Self::is_byte_aligned)
-/// returns `true`).
+/// the internal bit buffer is empty (i.e. at a byte boundary).
 #[derive(Debug)]
 pub struct BitWriter<W: Write> {
     writer: W,
@@ -94,6 +93,7 @@ impl<W: Write> BitWriter<W> {
     }
 
     /// Returns true if the writer is at a byte boundary (no partial byte buffered).
+    #[cfg(test)]
     pub fn is_byte_aligned(&self) -> bool {
         self.bits_filled == 0
     }

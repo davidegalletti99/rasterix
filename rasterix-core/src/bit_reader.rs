@@ -18,8 +18,7 @@ fn icao6_to_ascii(code: u8) -> u8 {
 /// is needed.
 ///
 /// The struct also implements [`Read`] for byte-level access, but only when
-/// the internal bit buffer is empty (i.e. [`is_byte_aligned`](Self::is_byte_aligned)
-/// returns `true`).
+/// the internal bit buffer is empty (i.e. at a byte boundary).
 #[derive(Debug)]
 pub struct BitReader<R: Read> {
     reader: R,
@@ -85,6 +84,7 @@ impl<R: Read> BitReader<R> {
     }
 
     /// Returns true if the reader is at a byte boundary (no partial byte buffered).
+    #[cfg(test)]
     pub fn is_byte_aligned(&self) -> bool {
         self.bits_left == 0
     }
