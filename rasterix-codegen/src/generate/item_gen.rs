@@ -172,8 +172,6 @@ mod tests {
             name: format_ident!("Item010"),
             enums: vec![],
             kind: LoweredItemKind::Simple {
-                is_explicit: false,
-                byte_size: 2,
                 fields: vec![
                     FieldDescriptor {
                         name: format_ident!("sac"),

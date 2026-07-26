@@ -42,8 +42,6 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKin
     match layout {
         IRLayout::Fixed { bytes, elements } => {
             Ok(LoweredItemKind::Simple {
-                is_explicit: false,
-                byte_size: *bytes,
                 fields: lower_fields(elements)?,
                 decode_ops: lower_decode_ops(elements, false)?,
                 encode_ops: lower_encode_ops(elements, false, *bytes)?,
@@ -51,8 +49,6 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKin
         }
         IRLayout::Explicit { bytes, elements } => {
             Ok(LoweredItemKind::Simple {
-                is_explicit: true,
-                byte_size: *bytes,
                 fields: lower_fields(elements)?,
                 decode_ops: lower_decode_ops(elements, true)?,
                 encode_ops: lower_encode_ops(elements, true, *bytes)?,
@@ -62,7 +58,6 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKin
             let parts = part_groups.iter()
                 .map(|group| -> Result<LoweredPart, CodegenError> { 
                     Ok(LoweredPart {
-                        index: group.index,
                         struct_name: format_ident!("{}Part{}", parent_name, group.index),
                         field_name: format_ident!("part{}", group.index),
                         is_required: group.index == 0,
@@ -94,7 +89,6 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKin
                     let enums = collect_and_lower_enums(&sub.layout);
                     let kind = lower_layout(&sub_name, &sub.layout)?;
                     Ok(LoweredSubItem {
-                        index: sub.index,
                         struct_name: sub_name,
                         field_name: format_ident!("sub{}", sub.index),
                         fspec_byte,
@@ -347,8 +341,7 @@ mod tests {
         let item = &lowered.items[0];
         assert_eq!(item.name, format_ident!("Item010"));
         match &item.kind {
-            LoweredItemKind::Simple { is_explicit, fields, decode_ops, encode_ops, .. } => {
-                assert!(!is_explicit);
+            LoweredItemKind::Simple { fields, decode_ops, encode_ops, .. } => {
                 assert_eq!(fields.len(), 2);
                 assert_eq!(fields[0].name, format_ident!("sac"));
                 assert_eq!(fields[1].name, format_ident!("sic"));
@@ -377,8 +370,7 @@ mod tests {
         let lowered = lower(&ir).unwrap();
         let item = &lowered.items[0];
         match &item.kind {
-            LoweredItemKind::Simple { is_explicit, decode_ops, encode_ops, .. } => {
-                assert!(is_explicit);
+            LoweredItemKind::Simple { decode_ops, encode_ops, .. } => {
                 assert!(matches!(decode_ops[0], DecodeOp::ReadLengthByte));
                 assert!(matches!(encode_ops[0], EncodeOp::WriteLengthByte { total_bytes: 3 }));
             }

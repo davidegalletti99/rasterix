@@ -39,8 +39,6 @@ pub struct LoweredItem {
 #[derive(Debug)]
 pub enum LoweredItemKind {
     Simple {
-        is_explicit: bool,
-        byte_size: usize,
         fields: Vec<FieldDescriptor>,
         decode_ops: Vec<DecodeOp>,
         encode_ops: Vec<EncodeOp>,
@@ -63,7 +61,6 @@ pub enum LoweredItemKind {
 /// A single part within an Extended item.
 #[derive(Debug)]
 pub struct LoweredPart {
-    pub index: usize,
     pub struct_name: Ident,
     pub field_name: Ident,
     pub is_required: bool,
@@ -75,7 +72,6 @@ pub struct LoweredPart {
 /// A sub-item within a Compound item.
 #[derive(Debug)]
 pub struct LoweredSubItem {
-    pub index: usize,
     pub struct_name: Ident,
     pub field_name: Ident,
     pub fspec_byte: usize,
