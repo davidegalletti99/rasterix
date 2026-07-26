@@ -77,10 +77,6 @@ fn main() {
     // Write the mod.rs file
     let mod_path = generated_dir.join("mod.rs");
     fs::write(&mod_path, &mod_content).unwrap();
-
-    // Write the path to generated dir for tests to find
-    let generated_path_file = Path::new(&out_dir).join("generated_path.txt");
-    fs::write(&generated_path_file, generated_dir.to_str().unwrap()).unwrap();
 }
 
 /// Generate Rust code from XML content using rasterix-codegen.
