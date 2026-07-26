@@ -3,7 +3,7 @@
 //! These tests verify that the high-level Builder API correctly
 //! orchestrates the parsing, transformation, and code generation pipeline.
 
-use rasterix_codegen::builder::RustBuilder;
+use rasterix_codegen::builder;
 use std::fs;
 use test_utils::{cleanup_temp_files, create_temp_file, load_fixture, assert_code_contains};
 
@@ -15,8 +15,7 @@ use test_utils::{cleanup_temp_files, create_temp_file, load_fixture, assert_code
 fn builder_from_fixture() {
     let temp_path = create_temp_file(&load_fixture("valid", "simple_fixed.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 
@@ -32,8 +31,7 @@ fn builder_from_fixture() {
 fn builder_generates_record_struct() {
     let temp_path = create_temp_file(&load_fixture("valid", "simple_fixed.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let code = builder.build(temp_path.to_str().unwrap()).unwrap();
+    let code = builder::build(temp_path.to_str().unwrap()).unwrap();
 
     cleanup_temp_files();
     let expected_fragments = [
@@ -47,8 +45,7 @@ fn builder_generates_record_struct() {
 fn builder_generates_item_structs() {
     let temp_path = create_temp_file(&load_fixture("valid", "multi_item_record.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let code = builder.build(temp_path.to_str().unwrap()).unwrap();
+    let code = builder::build(temp_path.to_str().unwrap()).unwrap();
 
     cleanup_temp_files();
     let expected_fragments = [
@@ -70,8 +67,7 @@ fn builder_build_file() {
     fs::create_dir_all("target/test_output").unwrap();
     fs::write("target/test_output/test.xml", xml_content).unwrap();
 
-    let builder = RustBuilder::new();
-    let result = builder.build_file("target/test_output/test.xml", "target/test_output/generated");
+    let result = builder::build_file("target/test_output/test.xml", "target/test_output/generated");
 
     assert!(result.is_ok());
     let output_path = result.unwrap();
@@ -96,8 +92,7 @@ fn builder_creates_output_directory() {
     fs::create_dir_all("target/test_nested").unwrap();
     fs::write("target/test_nested/test.xml", xml_content).unwrap();
 
-    let builder = RustBuilder::new();
-    let result = builder.build_file("target/test_nested/test.xml", output_dir);
+    let result = builder::build_file("target/test_nested/test.xml", output_dir);
 
     assert!(result.is_ok());
     let output_path = result.unwrap();
@@ -114,8 +109,7 @@ fn builder_output_filename_from_input() {
     fs::create_dir_all("target/test_filename").unwrap();
     fs::write("target/test_filename/cat048.xml", xml_content).unwrap();
 
-    let builder = RustBuilder::new();
-    let result = builder.build_file("target/test_filename/cat048.xml", "target/test_filename/out");
+    let result = builder::build_file("target/test_filename/cat048.xml", "target/test_filename/out");
 
     assert!(result.is_ok());
     let output_path = result.unwrap();
@@ -137,8 +131,7 @@ fn builder_output_filename_from_input() {
 
 #[test]
 fn builder_fails_on_missing_file() {
-    let builder = RustBuilder::new();
-    let result = builder.build("nonexistent_file.xml");
+    let result = builder::build("nonexistent_file.xml");
 
     assert!(result.is_err());
 }
@@ -147,8 +140,7 @@ fn builder_fails_on_missing_file() {
 fn builder_fails_on_invalid_xml() {
     let temp_path = create_temp_file("<invalid xml", "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 
@@ -163,8 +155,7 @@ fn builder_fails_on_invalid_xml() {
 fn builder_handles_extended_item() {
     let temp_path = create_temp_file(&load_fixture("valid", "extended_multi_part.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 
@@ -181,8 +172,7 @@ fn builder_handles_extended_item() {
 fn builder_handles_compound_item() {
     let temp_path = create_temp_file(&load_fixture("valid", "compound_simple.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 
@@ -192,7 +182,7 @@ fn builder_handles_compound_item() {
         "Sub1",
         "Sub2",
     ];
-    
+
     assert_code_contains(&code, &expected_fragments);
 }
 
@@ -200,8 +190,7 @@ fn builder_handles_compound_item() {
 fn builder_handles_repetitive_item() {
     let temp_path = create_temp_file(&load_fixture("valid", "repetitive_basic.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 
@@ -212,8 +201,7 @@ fn builder_handles_repetitive_item() {
 fn builder_handles_enum() {
     let temp_path = create_temp_file(&load_fixture("valid", "enum_basic.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 
@@ -227,24 +215,7 @@ fn builder_handles_enum() {
 fn builder_handles_mixed_all() {
     let temp_path = create_temp_file(&load_fixture("valid", "mixed_all.xml"), "xml");
 
-    let builder = RustBuilder::new();
-    let result = builder.build(temp_path.to_str().unwrap());
-
-    cleanup_temp_files();
-
-    assert!(result.is_ok());
-}
-
-// ============================================================================
-// Default Trait Tests
-// ============================================================================
-
-#[test]
-fn builder_default_trait() {
-    let builder: RustBuilder = Default::default();
-    let temp_path = create_temp_file(&load_fixture("valid", "simple_fixed.xml"), "xml");
-
-    let result = builder.build(temp_path.to_str().unwrap());
+    let result = builder::build(temp_path.to_str().unwrap());
 
     cleanup_temp_files();
 

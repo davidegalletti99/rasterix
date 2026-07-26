@@ -19,7 +19,7 @@
 //! For code generation, use the `codegen` module:
 //!
 //! ```ignore
-//! use rasterix::codegen::builder::RustBuilder;
+//! use rasterix::codegen::builder;
 //! ```
 
 /// Re-export of rasterix-core as `rcore`.
@@ -38,7 +38,7 @@ pub mod rcore {
 /// Re-export of rasterix-codegen as `codegen`.
 ///
 /// Contains code generation utilities:
-/// - [`builder`](codegen::builder) - High-level Builder API
+/// - [`builder`](codegen::builder) - High-level build functions
 /// - [`parse`](codegen::parse) - XML parsing
 /// - [`transform`](codegen::transform) - IR transformation
 /// - [`generate`](codegen::generate) - Rust code generation

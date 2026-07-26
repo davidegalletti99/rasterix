@@ -108,31 +108,11 @@ pub fn assert_code_not_contains(generated: &str, forbidden_fragments: &[&str]) {
 pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::time::{SystemTime, UNIX_EPOCH};
-    use std::hash::{Hash, Hasher};
-    use std::collections::hash_map::DefaultHasher;
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
     let counter = COUNTER.fetch_add(1, Ordering::SeqCst);
 
-    let thread_id = std::thread::current().id();
-    let mut hasher = DefaultHasher::new();
-    thread_id.hash(&mut hasher);
-    let thread_hash = hasher.finish();
-
-    let filename = format!(
-        "rasterix_test_{}_{}_{:x}_{}.{}",
-        std::process::id(),
-        counter,
-        thread_hash,
-        timestamp,
-        extension
-    );
+    let filename = format!("rasterix_test_{}_{}.{}", std::process::id(), counter, extension);
     let path = std::env::temp_dir().join(filename);
 
     let mut file = fs::File::create(&path).expect("Failed to create temp file");

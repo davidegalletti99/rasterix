@@ -5,7 +5,7 @@ use thiserror::Error;
 /// Returned by every function in the public pipeline:
 /// [`parse_category`](crate::parse::parse_category),
 /// [`to_ir`](crate::transform::transformer::to_ir),
-/// [`generate`](crate::generate::generate), and [`RustBuilder`](crate::builder::RustBuilder).
+/// [`generate`](crate::generate::generate), and [`build`](crate::builder::build).
 #[derive(Debug, Error)]
 pub enum CodegenError {
     // ── I/O ──────────────────────────────────────────────────────────────
