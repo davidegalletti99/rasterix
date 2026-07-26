@@ -98,7 +98,7 @@ fn generate_enum_code() {
         "Psr = 1u8",
         "Ssr = 2u8",
         "Unknown (u8)",
-        "impl TryFrom < u8 > for TargetType",
+        "impl From < u8 > for TargetType",
     ]);
 }
 

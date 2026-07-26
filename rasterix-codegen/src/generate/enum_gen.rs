@@ -8,7 +8,7 @@ use crate::transform::lower_ir::LoweredEnum;
 /// Creates an enum with:
 /// - Named variants for all defined values
 /// - An Unknown(u8) variant for undefined values
-/// - TryFrom<u8> implementation for decoding
+/// - From<u8> implementation for decoding (undefined values map to Unknown)
 /// - Into<u8> implementation for encoding
 pub fn generate_enum(lowered: &LoweredEnum) -> TokenStream {
     let enum_name = &lowered.name;
@@ -19,10 +19,10 @@ pub fn generate_enum(lowered: &LoweredEnum) -> TokenStream {
         quote! { #vname = #vval }
     }).collect();
 
-    let try_from_arms: Vec<_> = lowered.variants.iter().map(|v| {
+    let from_u8_arms: Vec<_> = lowered.variants.iter().map(|v| {
         let vname = &v.name;
         let vval = v.value;
-        quote! { #vval => Ok(Self::#vname) }
+        quote! { #vval => Self::#vname }
     }).collect();
 
     let from_arms: Vec<_> = lowered.variants.iter().map(|v| {
@@ -39,13 +39,11 @@ pub fn generate_enum(lowered: &LoweredEnum) -> TokenStream {
             Unknown(u8),
         }
 
-        impl TryFrom<u8> for #enum_name {
-            type Error = ();
-
-            fn try_from(value: u8) -> Result<Self, ()> {
+        impl From<u8> for #enum_name {
+            fn from(value: u8) -> Self {
                 match value {
-                    #(#try_from_arms,)*
-                    _ => Ok(Self::Unknown(value)),
+                    #(#from_u8_arms,)*
+                    _ => Self::Unknown(value),
                 }
             }
         }
@@ -88,7 +86,7 @@ mod tests {
             "Ssr = 2u8",
             "Combined = 3u8",
             "Unknown (u8)",
-            "impl TryFrom < u8 > for TargetType",
+            "impl From < u8 > for TargetType",
             "impl From < TargetType > for u8",
         ];
         assert_code_contains(&code, &expected_fragments);
