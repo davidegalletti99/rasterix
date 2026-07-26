@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 use crate::{
     generate::generate,
-    parse::parser::parse_category,
+    parse::parse_category,
     transform::transformer::to_ir,
     CodegenError,
 };

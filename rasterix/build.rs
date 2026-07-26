@@ -92,7 +92,7 @@ fn generate_code(xml_content: &str) -> Result<String, String> {
     // For simplicity, we'll inline the generation logic here
     // This requires adding rasterix-codegen as a build dependency
 
-    use rasterix_codegen::parse::parser::parse_category;
+    use rasterix_codegen::parse::parse_category;
     use rasterix_codegen::transform::transformer::to_ir;
     use rasterix_codegen::generate::generate;
 

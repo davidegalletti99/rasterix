@@ -4,7 +4,7 @@
 //! from the intermediate representation (IR).
 
 use rasterix_codegen::generate::generate;
-use rasterix_codegen::parse::parser::parse_category;
+use rasterix_codegen::parse::parse_category;
 use rasterix_codegen::transform::transformer::to_ir;
 use test_utils::{
     assert_code_contains, assert_code_not_contains, load_fixture,

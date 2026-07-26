@@ -3,7 +3,7 @@
 //! These tests verify that the XML parser correctly transforms ASTERIX XML
 //! definitions into the xml_model data structures.
 
-use rasterix_codegen::parse::parser::parse_category;
+use rasterix_codegen::parse::parse_category;
 use rasterix_codegen::parse::xml_model::*;
 use test_utils::load_fixture;
 
