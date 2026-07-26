@@ -6,6 +6,20 @@ use crate::{
     CodegenError,
 };
 
+/// Builds Rust code from an in-memory XML string.
+///
+/// # Errors
+///
+/// Returns [`CodegenError::Parse`] if the XML is malformed.
+/// Returns other [`CodegenError`] variants if the definition fails validation or lowering.
+pub fn build_str(xml: &str) -> Result<String, CodegenError> {
+    let category = parse_category(xml)?;
+    let ir = to_ir(category)?;
+    let tokens = generate(&ir)?;
+
+    Ok(tokens.to_string())
+}
+
 /// Builds Rust code from an XML file.
 ///
 /// # Errors
@@ -16,12 +30,7 @@ use crate::{
 pub fn build(file_path: &str) -> Result<String, CodegenError> {
     let xml = fs::read_to_string(file_path)
         .map_err(|source| CodegenError::Io { path: file_path.to_string(), source })?;
-
-    let category = parse_category(&xml)?;
-    let ir = to_ir(category)?;
-    let tokens = generate(&ir)?;
-
-    Ok(tokens.to_string())
+    build_str(&xml)
 }
 
 /// Builds code from a single file and writes it to the output directory.
