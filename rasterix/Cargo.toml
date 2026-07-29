@@ -17,3 +17,7 @@ rasterix-codegen = { path = "../rasterix-codegen", version = "0.1.2" }
 
 [dev-dependencies]
 test-utils = { path = "../test-utils" }
+
+[[bench]]
+name = "roundtrip"
+harness = false
