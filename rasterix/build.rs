@@ -26,6 +26,7 @@ fn main() {
         ("epb_field", "epb_field.xml"),
         ("explicit_item", "explicit_item.xml"),
         ("spare_bits", "spare_bits.xml"),
+        ("bench_record", "bench_record.xml"),
     ];
 
     // Generate mod.rs that includes all generated modules

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE category SYSTEM "../../rasterix.dtd">
+<!--
+    Fixture used by rasterix/benches/roundtrip.rs.
+
+    Nine items so the FSPEC spans two bytes (exercising the FX chain), and one
+    item per data structure the generator supports, so the benchmark touches
+    every emitted code path instead of only byte-aligned fixed items.
+-->
+<category id="62">
+    <item id="010" frn="1">
+        <fixed bytes="2">
+            <field name="sac" bits="8"/>
+            <field name="sic" bits="8"/>
+        </fixed>
+    </item>
+    <item id="015" frn="2">
+        <fixed bytes="1">
+            <field name="service_id" bits="4"/>
+            <enum name="quality" bits="3">
+                <value name="HIGH" value="0"/>
+                <value name="MEDIUM" value="1"/>
+                <value name="LOW" value="2"/>
+            </enum>
+            <spare bits="1"/>
+        </fixed>
+    </item>
+    <item id="020" frn="3">
+        <extended bytes="3">
+            <part index="0">
+                <field name="typ" bits="3"/>
+                <field name="src" bits="4"/>
+            </part>
+            <part index="1">
+                <field name="conf" bits="5"/>
+                <spare bits="2"/>
+            </part>
+            <part index="2">
+                <field name="ext" bits="7"/>
+            </part>
+        </extended>
+    </item>
+    <item id="040" frn="4">
+        <repetitive bytes="2" counter="8">
+            <field name="track" bits="16"/>
+        </repetitive>
+    </item>
+    <item id="060" frn="5">
+        <compound>
+            <fixed bytes="1">
+                <field name="mode3a" bits="8"/>
+            </fixed>
+            <repetitive bytes="1" counter="8">
+                <field name="code" bits="8"/>
+            </repetitive>
+        </compound>
+    </item>
+    <item id="080" frn="6">
+        <explicit bytes="4">
+            <field name="altitude" bits="16"/>
+            <field name="speed" bits="16"/>
+        </explicit>
+    </item>
+    <item id="100" frn="7">
+        <fixed bytes="4">
+            <field name="pos_x" bits="12"/>
+            <field name="pos_y" bits="20"/>
+        </fixed>
+    </item>
+    <item id="245" frn="8">
+        <fixed bytes="6">
+            <field name="callsign" bits="48" type="string"/>
+        </fixed>
+    </item>
+    <item id="290" frn="9">
+        <fixed bytes="2">
+            <epb>
+                <field name="age" bits="8"/>
+            </epb>
+            <field name="delay" bits="7"/>
+        </fixed>
+    </item>
+</category>
