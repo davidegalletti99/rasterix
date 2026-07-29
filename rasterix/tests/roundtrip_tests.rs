@@ -750,3 +750,86 @@ fn datablock_decode_length_too_small() {
     let result = DataBlock::decode(&mut reader);
     assert!(result.is_err());
 }
+
+// ============================================================================
+// Extended Item FX Termination
+// ============================================================================
+//
+// The encoder terminates every extended part with an FX bit, including the
+// last one. A decoder that skips that final bit stays one bit out of phase for
+// the rest of the record, which is invisible when the extended item is last
+// (the stray bit falls into the flush padding) and corrupts everything when
+// another item follows it.
+
+#[test]
+fn roundtrip_extended_followed_by_another_item() {
+    use bench_record::cat062::*;
+
+    let original = Record {
+        item010: None,
+        item015: None,
+        item020: Some(Item020 {
+            part0: Item020Part0 { typ: 5, src: 9 },
+            part1: Some(Item020Part1 { conf: 17 }),
+            part2: Some(Item020Part2 { ext: 42 }),
+        }),
+        // Sits after the extended item, so any leftover FX bit shifts it.
+        item040: Some(Item040 {
+            items: vec![Item040Element { track: 0xBEEF }],
+        }),
+        item060: None,
+        item080: None,
+        item100: None,
+        item245: None,
+        item290: None,
+    };
+    let block = DataBlock::with_records(vec![original.clone()]);
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        block.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+
+    let mut reader = BitReader::new(Cursor::new(&buffer));
+    let decoded = DataBlock::decode(&mut reader).unwrap();
+
+    assert_eq!(block, decoded);
+}
+
+#[test]
+fn roundtrip_extended_first_part_only() {
+    use bench_record::cat062::*;
+
+    let original = Record {
+        item010: None,
+        item015: None,
+        item020: Some(Item020 {
+            part0: Item020Part0 { typ: 3, src: 6 },
+            part1: None,
+            part2: None,
+        }),
+        item040: Some(Item040 {
+            items: vec![Item040Element { track: 1 }],
+        }),
+        item060: None,
+        item080: None,
+        item100: None,
+        item245: None,
+        item290: None,
+    };
+    let block = DataBlock::with_records(vec![original]);
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        block.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+
+    let mut reader = BitReader::new(Cursor::new(&buffer));
+    let decoded = DataBlock::decode(&mut reader).unwrap();
+
+    assert_eq!(block, decoded);
+}

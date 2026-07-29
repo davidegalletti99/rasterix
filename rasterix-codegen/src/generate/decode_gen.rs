@@ -139,12 +139,18 @@ pub fn generate_extended_decode(
                         let fx = reader.read_bits(1)? != 0;
                     });
                 } else {
-                    // For more than 2 parts, we need to keep track of fx for 
+                    // For more than 2 parts, we need to keep track of fx for
                     // subsequent parts
                     main_decode_body.push(quote! {
                         let mut fx = reader.read_bits(1)? != 0;
                     });
                 }
+            } else {
+                // Single-part item: the encoder still terminates it with an
+                // FX bit, so it has to be consumed here.
+                main_decode_body.push(quote! {
+                    reader.read_bits(1)?;
+                });
             }
         } else if i != number_of_parts - 1 {
             main_decode_body.push(quote! {
@@ -159,7 +165,10 @@ pub fn generate_extended_decode(
         } else {
             main_decode_body.push(quote! {
                 let #field_name = if fx {
-                    Some(#part_name::decode(reader)?)
+                    let part = #part_name::decode(reader)?;
+                    // Last part carries a terminating FX bit on the wire.
+                    reader.read_bits(1)?;
+                    Some(part)
                 } else {
                     None
                 };
