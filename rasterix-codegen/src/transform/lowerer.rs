@@ -68,11 +68,11 @@ fn lower_layout(parent_name: &Ident, layout: &IRLayout) -> Result<LoweredItemKin
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(LoweredItemKind::Extended { parts })
         }
-        IRLayout::Repetitive { bytes: _, counter_bytes, elements } => {
+        IRLayout::Repetitive { bytes: _, counter_bits, elements } => {
             let element_type_name = format_ident!("{}Element", parent_name);
             Ok(LoweredItemKind::Repetitive {
                 element_type_name,
-                counter_bytes: *counter_bytes,
+                counter_bits: *counter_bits,
                 fields: lower_fields(elements)?,
                 decode_ops: lower_element_ops_decode(elements)?,
                 encode_ops: lower_element_ops_encode(elements)?,

@@ -454,7 +454,8 @@ fn roundtrip_compound_partial_subitems() {
 fn roundtrip_repetitive_basic() {
     use repetitive_basic::cat001::*;
 
-    // The repetitive_basic.xml fixture has counter="5", meaning exactly 5 elements
+    // counter="5" is the width of the length prefix in bits, not a fixed element
+    // count; the five elements below are just what this case happens to encode.
     let original = Item070 {
         items: vec![
             Item070Element { azimuth: 100 },

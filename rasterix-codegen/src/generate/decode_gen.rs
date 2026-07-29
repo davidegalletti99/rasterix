@@ -186,17 +186,16 @@ pub fn generate_extended_decode(
 
 /// Generates decode implementation for a Repetitive item.
 ///
-/// Wire format: [counter: counter_bytes bytes][element 0]...[element N-1]
+/// Wire format: [counter: counter_bits bits][element 0]...[element N-1]
 pub fn generate_repetitive_decode(
     name: &Ident,
-    counter_bytes: usize,
+    counter_bits: usize,
     element_type_name: &Ident,
     decode_ops: &[DecodeOp],
     fields: &[FieldDescriptor],
 ) -> TokenStream {
     let element_decodes: Vec<_> = decode_ops.iter().map(emit_decode_op).collect();
     let field_names: Vec<_> = fields.iter().map(|f| &f.name).collect();
-    let counter_bits = counter_bytes * 8;
 
     quote! {
         impl #element_type_name {

@@ -38,6 +38,11 @@ pub enum CodegenError {
         source: std::num::ParseIntError,
     },
 
+    /// The counter width in a `<repetitive>` item is outside the range a single
+    /// `read_bits`/`write_bits` call can carry.
+    #[error("Invalid counter width {bits} in repetitive item: must be between 1 and 64 bits")]
+    CounterWidthOutOfRange { bits: usize },
+
     /// An `<enum>` variant's `value` attribute is not a valid integer.
     #[error("Invalid enum value '{value}' for variant '{variant}': {source}")]
     InvalidEnumValue {

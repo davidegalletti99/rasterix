@@ -89,11 +89,15 @@ fn extended_layout(ext: ExtendedItem) -> Result<IRLayout, CodegenError> {
 }
 
 fn repetitive_layout(rep: RepetitiveItem) -> Result<IRLayout, CodegenError> {
-    let counter_bytes = rep.counter.parse::<usize>()
+    let counter_bits = rep.counter.parse::<usize>()
         .map_err(|e| CodegenError::InvalidCounter { value: rep.counter.clone(), source: e })?;
+    // The generated code carries the count through a single u64 read/write.
+    if !(1..=64).contains(&counter_bits) {
+        return Err(CodegenError::CounterWidthOutOfRange { bits: counter_bits });
+    }
     Ok(IRLayout::Repetitive {
         bytes: rep.bytes,
-        counter_bytes,
+        counter_bits,
         elements: to_ir_elements(rep.elements)?,
     })
 }
@@ -205,6 +209,24 @@ mod tests {
         let result = to_ir_item_structure(ItemStructure::Repetitive(rep));
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CodegenError::InvalidCounter { .. }));
+    }
+
+    #[test]
+    fn test_counter_width_out_of_range_returns_error() {
+        // A zero-bit counter can never carry a length, and anything wider than
+        // 64 bits would overflow the u64 the generated read/write uses.
+        for counter in ["0", "65"] {
+            let rep = RepetitiveItem {
+                bytes: 1,
+                counter: counter.into(),
+                elements: vec![],
+            };
+            let result = to_ir_item_structure(ItemStructure::Repetitive(rep));
+            assert!(
+                matches!(result, Err(CodegenError::CounterWidthOutOfRange { .. })),
+                "counter=\"{counter}\" should have been rejected"
+            );
+        }
     }
 
     #[test]

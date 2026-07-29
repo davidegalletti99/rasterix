@@ -27,10 +27,10 @@ pub fn generate_item(item: &LoweredItem) -> TokenStream {
             let encode_impl = generate_extended_encode(item_name, parts);
             quote! { #(#enum_defs)* #struct_def #decode_impl #encode_impl }
         }
-        LoweredItemKind::Repetitive { element_type_name, counter_bytes, fields, decode_ops, encode_ops } => {
+        LoweredItemKind::Repetitive { element_type_name, counter_bits, fields, decode_ops, encode_ops } => {
             let struct_def = generate_repetitive_struct(item_name, element_type_name, fields);
-            let decode_impl = generate_repetitive_decode(item_name, *counter_bytes, element_type_name, decode_ops, fields);
-            let encode_impl = generate_repetitive_encode(item_name, *counter_bytes, element_type_name, encode_ops);
+            let decode_impl = generate_repetitive_decode(item_name, *counter_bits, element_type_name, decode_ops, fields);
+            let encode_impl = generate_repetitive_encode(item_name, *counter_bits, element_type_name, encode_ops);
             quote! { #(#enum_defs)* #struct_def #decode_impl #encode_impl }
         }
         LoweredItemKind::Compound { sub_items } => generate_compound_item(item_name, sub_items),
@@ -54,8 +54,8 @@ fn generate_sub_item_decode(sub: &LoweredSubItem) -> TokenStream {
             generate_simple_decode(&sub.struct_name, decode_ops, fields)
         }
         LoweredItemKind::Extended { parts } => generate_extended_decode(&sub.struct_name, parts),
-        LoweredItemKind::Repetitive { element_type_name, counter_bytes, decode_ops, fields, .. } => {
-            generate_repetitive_decode(&sub.struct_name, *counter_bytes, element_type_name, decode_ops, fields)
+        LoweredItemKind::Repetitive { element_type_name, counter_bits, decode_ops, fields, .. } => {
+            generate_repetitive_decode(&sub.struct_name, *counter_bits, element_type_name, decode_ops, fields)
         }
         LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
     }
@@ -65,8 +65,8 @@ fn generate_sub_item_encode(sub: &LoweredSubItem) -> TokenStream {
     match &sub.kind {
         LoweredItemKind::Simple { encode_ops, .. } => generate_simple_encode(&sub.struct_name, encode_ops),
         LoweredItemKind::Extended { parts } => generate_extended_encode(&sub.struct_name, parts),
-        LoweredItemKind::Repetitive { element_type_name, counter_bytes, encode_ops, .. } => {
-            generate_repetitive_encode(&sub.struct_name, *counter_bytes, element_type_name, encode_ops)
+        LoweredItemKind::Repetitive { element_type_name, counter_bits, encode_ops, .. } => {
+            generate_repetitive_encode(&sub.struct_name, *counter_bits, element_type_name, encode_ops)
         }
         LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
     }

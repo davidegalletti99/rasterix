@@ -48,7 +48,7 @@ pub enum LoweredItemKind {
     },
     Repetitive {
         element_type_name: Ident,
-        counter_bytes: usize,
+        counter_bits: usize,
         fields: Vec<FieldDescriptor>,
         decode_ops: Vec<DecodeOp>,
         encode_ops: Vec<EncodeOp>,

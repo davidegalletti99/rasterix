@@ -162,15 +162,14 @@ pub fn generate_extended_encode(
 
 /// Generates encode implementation for a Repetitive item.
 ///
-/// Wire format: [counter: counter_bytes bytes][element 0]...[element N-1]
+/// Wire format: [counter: counter_bits bits][element 0]...[element N-1]
 pub fn generate_repetitive_encode(
     name: &Ident,
-    counter_bytes: usize,
+    counter_bits: usize,
     element_type_name: &Ident,
     encode_ops: &[EncodeOp],
 ) -> TokenStream {
     let element_encodes: Vec<_> = encode_ops.iter().map(emit_encode_op).collect();
-    let counter_bits = counter_bytes * 8;
 
     quote! {
         impl #element_type_name {

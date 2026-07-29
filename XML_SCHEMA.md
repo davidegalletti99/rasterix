@@ -145,7 +145,7 @@ Repetitive data structure with a counter indicating the number of repetitions.
 | Attribute | Required | Description |
 |-----------|----------|-------------|
 | `bytes` | Yes | Length of each repetition in bytes |
-| `counter` | Yes | Size of the repetition counter in bits |
+| `counter` | Yes | Width of the repetition counter in bits (1-64) |
 
 **Example: Mode S MB Data**
 ```xml

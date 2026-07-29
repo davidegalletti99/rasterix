@@ -82,13 +82,13 @@ pub enum IRLayout {
     
     /// Repetitive item — variable-length, prefixed by a counter.
     ///
-    /// Wire format: [counter: counter_bytes bytes][repetition 0]...[repetition N-1]
+    /// Wire format: [counter: counter_bits bits][repetition 0]...[repetition N-1]
     Repetitive {
         /// Size in bytes of a single repetition
         bytes: usize,
 
-        /// Number of bytes used to encode the repetition count (1 or 2)
-        counter_bytes: usize,
+        /// Width in bits of the counter prefixing the repetitions (1-64)
+        counter_bits: usize,
 
         /// Elements in a single repetition
         elements: Vec<IRElement>,
