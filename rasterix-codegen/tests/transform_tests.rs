@@ -39,7 +39,7 @@ fn transform_preserves_item_order() {
     assert!(ir.category.items.len() >= 2);
 
     // Items should be in order by their position in XML
-    let ids: Vec<u8> = ir.category.items.iter().map(|i| i.id).collect();
+    let ids: Vec<u16> = ir.category.items.iter().map(|i| i.id).collect();
     assert_eq!(ids[0], 10);
     assert_eq!(ids[1], 20);
 }

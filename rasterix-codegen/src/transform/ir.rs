@@ -25,8 +25,9 @@ pub struct IRCategory {
 /// A single data item within a category.
 #[derive(Debug)]
 pub struct IRItem {
-    /// Item ID (e.g., 010, 020, 140)
-    pub id: u8,
+    /// Item ID (e.g., 010, 020, 290). Names the generated struct only; it is
+    /// never written to the wire, so it is not limited to one byte.
+    pub id: u16,
     
     /// Field Reference Number — determines position in record FSPEC.
     /// 1-indexed per the ASTERIX standard (EUROCONTROL-SPEC-0149):

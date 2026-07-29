@@ -19,8 +19,11 @@ pub struct Category {
 /// Represents a single data item within a category.
 #[derive(Debug, Deserialize)]
 pub struct Item {
+    /// Data Item identifier, e.g. 10 for I048/010. It names the generated
+    /// struct and never reaches the wire, so it is not limited to one byte —
+    /// real categories define items such as I062/290 and I062/390.
     #[serde(rename = "@id")]
-    pub id: u8,
+    pub id: u16,
 
     /// Field Reference Number as defined by the ASTERIX standard (1-indexed).
     /// Per EUROCONTROL-SPEC-0149: FRN 1 is the first item in the record FSPEC,
