@@ -113,11 +113,14 @@
 <!--
     repetitive: Repetitive data structure.
 
-    Contains a counter followed by repeated occurrences of the same format.
+    Contains a counter followed by repeated occurrences of the same format,
+    or FX-terminated repetitions when counter="fx" (each repetition ends
+    with an FX bit: 1 = another repetition follows; element bits must sum
+    to bytes*8 - 1).
 
     Attributes:
-        bytes   - Length of each repetition in bytes
-        counter - Width of the repetition counter in bits (1-64)
+        bytes   - Length of each repetition in bytes (FX bit included)
+        counter - Width of the repetition counter in bits (1-64), or "fx"
 -->
 <!ELEMENT repetitive %elements;>
 <!ATTLIST repetitive %common-attributes;
@@ -130,9 +133,11 @@
     A container that combines multiple data structures, each with its own
     presence indicator (SF - Subfield present).
 
-    Contains: One or more compoundable data structures
+    Contains: One or more compoundable data structures. An empty <spare/>
+              entry marks an unassigned FSPEC bit: it skips one presence-bit
+              position without defining a sub-item.
 -->
-<!ELEMENT compound (%compoundable-data;)+>
+<!ELEMENT compound (fixed | explicit | extended | repetitive | spare)+>
 
 <!--
     part: A part within an extended data structure.
@@ -159,7 +164,9 @@
     Attributes:
         bits - Field width in bits
         name - Field identifier/name
-        type - Optional attribute to indicate if the field should be treated as a string or not (e.g., type="string")
+        type - Optional value interpretation: "numeric" (default),
+               "icao" (ICAO 6-bit characters; "string" is a legacy alias),
+               or "ascii" (plain 8-bit ASCII characters)
 -->
 <!ELEMENT field EMPTY>
 <!ATTLIST field %element-attributes;
@@ -170,13 +177,14 @@
 <!--
     spare: Spare/padding bits.
 
-    Reserved bits that should be set to zero.
+    Reserved bits that should be set to zero. Inside a compound, a bare
+    <spare/> (no bits attribute) marks an unassigned FSPEC bit slot.
 
     Attributes:
-        bits - Number of spare bits
+        bits - Number of spare bits (omitted for compound FSPEC slots)
 -->
 <!ELEMENT spare EMPTY>
-<!ATTLIST spare %element-attributes;>
+<!ATTLIST spare bits CDATA #IMPLIED>
 
 <!--
     epb: Element Populated Bit.

@@ -140,12 +140,26 @@ Contains one or more `<part>` elements, each with 7 data bits + 1 FX bit (for 1-
 
 ### `<repetitive>`
 
-Repetitive data structure with a counter indicating the number of repetitions.
+Repetitive data structure with a counter indicating the number of repetitions, or FX-terminated repetitions when `counter="fx"`.
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
-| `bytes` | Yes | Length of each repetition in bytes |
-| `counter` | Yes | Width of the repetition counter in bits (1-64) |
+| `bytes` | Yes | Length of each repetition in bytes (FX bit included for `counter="fx"`) |
+| `counter` | Yes | Width of the repetition counter in bits (1-64), or `"fx"` for FX-terminated repetitions |
+
+With `counter="fx"` there is no counter prefix: each repetition ends with an FX bit (1 = another repetition follows), so the element bits must sum to `bytes * 8 - 1`. At least one repetition must be present when encoding.
+
+**Example: FX-terminated repetitions**
+```xml
+<item id="050" frn="7">
+    <repetitive bytes="2" counter="fx">
+        <field name="v" bits="1"/>
+        <field name="g" bits="1"/>
+        <field name="l" bits="1"/>
+        <field name="mode2" bits="12"/>
+    </repetitive>
+</item>
+```
 
 **Example: Mode S MB Data**
 ```xml
@@ -183,7 +197,7 @@ Explicit-length data structure where the first byte contains the length indicato
 
 Compound data structure combining multiple sub-items, each with its own presence indicator (SF - Subfield present bit).
 
-Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repetitive`).
+Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repetitive`). An empty `<spare/>` entry marks an unassigned FSPEC bit: it skips one presence-bit position without defining a sub-item (matching the `-` slot of asterix-specs).
 
 **Example: Radar Plot Characteristics**
 ```xml
@@ -194,10 +208,8 @@ Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repet
             <field name="srl" bits="8"/>
         </fixed>
 
-        <!-- SF2: Number of Received Replies -->
-        <fixed bytes="1">
-            <field name="srr" bits="8"/>
-        </fixed>
+        <!-- SF2: unassigned FSPEC bit -->
+        <spare/>
 
         <!-- SF3: Amplitude of Reply -->
         <fixed bytes="1">
@@ -240,11 +252,15 @@ A named data field representing a single piece of information.
 |-----------|----------|-------------|
 | `name` | Yes | Field identifier (used in generated code) |
 | `bits` | Yes | Field width in bits |
+| `type` | No | Value interpretation: `numeric` (default), `icao` (ICAO 6-bit characters; `string` is a legacy alias), or `ascii` (plain 8-bit ASCII characters) |
+
+String fields (`icao`/`ascii`) generate a `String` struct field; trailing spaces are trimmed on decode and values are space-padded on encode.
 
 ```xml
 <field name="sac" bits="8"/>
 <field name="time_of_day" bits="24"/>
-<field name="aircraft_address" bits="24"/>
+<field name="callsign" bits="48" type="icao"/>
+<field name="designator" bits="56" type="ascii"/>
 ```
 
 ---
@@ -255,7 +271,7 @@ Reserved/padding bits that should be set to zero. Spare bits are not included in
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
-| `bits` | Yes | Number of spare bits |
+| `bits` | Yes* | Number of spare bits (*omitted only for an unassigned FSPEC slot directly inside `<compound>`) |
 
 ```xml
 <spare bits="4"/>

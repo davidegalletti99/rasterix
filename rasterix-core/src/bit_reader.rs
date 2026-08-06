@@ -83,6 +83,21 @@ impl<R: Read> BitReader<R> {
         Ok(s.trim_end_matches(' ').to_string())
     }
 
+    /// Reads a fixed-length ASTERIX string field of plain 8-bit ASCII
+    /// characters.
+    ///
+    /// Consumes `byte_len` bytes; trailing spaces and NULs are trimmed.
+    /// Non-ASCII bytes are replaced with `' '`.
+    pub fn read_ascii_string(&mut self, byte_len: usize) -> io::Result<String> {
+        let mut chars = Vec::with_capacity(byte_len);
+        for _ in 0..byte_len {
+            let byte = self.read_bits(8)? as u8;
+            chars.push(if byte.is_ascii() { byte as char } else { ' ' });
+        }
+        let s: String = chars.into_iter().collect();
+        Ok(s.trim_end_matches([' ', '\0']).to_string())
+    }
+
     /// Returns true if the reader is at a byte boundary (no partial byte buffered).
     #[cfg(test)]
     pub fn is_byte_aligned(&self) -> bool {

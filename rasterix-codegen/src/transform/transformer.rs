@@ -46,14 +46,18 @@ fn to_ir_item_structure(structure: ItemStructure) -> Result<IRLayout, CodegenErr
         ItemStructure::Repetitive(rep) => repetitive_layout(rep),
 
         ItemStructure::Compound(comp) => {
-            let sub_items = comp.items
-                .into_iter()
-                .enumerate()
-                .map(|(i, item)| -> Result<IRSubItem, CodegenError> { Ok(IRSubItem {
+            // A <spare/> entry consumes an FSPEC bit position without
+            // producing a sub-item (asterix-specs' unassigned "-" slot).
+            let mut sub_items = Vec::new();
+            for (i, item) in comp.items.into_iter().enumerate() {
+                if matches!(item, CompoundableItem::Spare(_)) {
+                    continue;
+                }
+                sub_items.push(IRSubItem {
                     index: i + 1,
                     layout: to_ir_compoundable_item(item)?,
-                })})
-                .collect::<Result<Vec<_>, CodegenError>>()?;
+                });
+            }
             Ok(IRLayout::Compound { sub_items })
         }
     }
@@ -65,6 +69,7 @@ fn to_ir_compoundable_item(item: CompoundableItem) -> Result<IRLayout, CodegenEr
         CompoundableItem::Explicit(simple) => explicit_layout(simple),
         CompoundableItem::Extended(ext) => extended_layout(ext),
         CompoundableItem::Repetitive(rep) => repetitive_layout(rep),
+        CompoundableItem::Spare(_) => unreachable!("spare slots are filtered out by the compound transform"),
     }
 }
 
@@ -89,12 +94,18 @@ fn extended_layout(ext: ExtendedItem) -> Result<IRLayout, CodegenError> {
 }
 
 fn repetitive_layout(rep: RepetitiveItem) -> Result<IRLayout, CodegenError> {
-    let counter_bits = rep.counter.parse::<usize>()
-        .map_err(|e| CodegenError::InvalidCounter { value: rep.counter.clone(), source: e })?;
-    // The generated code carries the count through a single u64 read/write.
-    if !(1..=64).contains(&counter_bits) {
-        return Err(CodegenError::CounterWidthOutOfRange { bits: counter_bits });
-    }
+    // counter="fx" selects FX-terminated repetitions (no counter prefix).
+    let counter_bits = if rep.counter == "fx" {
+        None
+    } else {
+        let bits = rep.counter.parse::<usize>()
+            .map_err(|e| CodegenError::InvalidCounter { value: rep.counter.clone(), source: e })?;
+        // The generated code carries the count through a single u64 read/write.
+        if !(1..=64).contains(&bits) {
+            return Err(CodegenError::CounterWidthOutOfRange { bits });
+        }
+        Some(bits)
+    };
     Ok(IRLayout::Repetitive {
         bytes: rep.bytes,
         counter_bits,
@@ -102,10 +113,12 @@ fn repetitive_layout(rep: RepetitiveItem) -> Result<IRLayout, CodegenError> {
     })
 }
 
-fn check_field_string_type(field: &Field) -> Result<bool, CodegenError> {
+fn check_field_string_type(field: &Field) -> Result<Option<StringKind>, CodegenError> {
     match field.field_type.as_str() {
-        "string" => Ok(true),
-        "numeric" => Ok(false),
+        // "string" predates the explicit encodings and has always meant ICAO 6-bit.
+        "string" | "icao" => Ok(Some(StringKind::Icao)),
+        "ascii" => Ok(Some(StringKind::Ascii)),
+        "numeric" => Ok(None),
         _ => Err(CodegenError::InvalidFieldType {
             field_name: field.name.clone(),
             field_type: field.field_type.clone(),
@@ -116,14 +129,14 @@ fn check_field_string_type(field: &Field) -> Result<bool, CodegenError> {
 fn to_ir_element(element: Element) -> Result<IRElement, CodegenError> {
     match element {
         Element::Field(field) => {
-            let is_string = check_field_string_type(&field)?;
-            Ok(IRElement::Field { name: field.name, bits: field.bits, is_string })
+            let string = check_field_string_type(&field)?;
+            Ok(IRElement::Field { name: field.name, bits: field.bits, string })
         }
         Element::EPB(epb) => {
             let content = match epb.content {
                 EPBContent::Field(field) => {
-                    let is_string = check_field_string_type(&field)?;
-                    IRElement::Field { name: field.name, bits: field.bits, is_string }
+                    let string = check_field_string_type(&field)?;
+                    IRElement::Field { name: field.name, bits: field.bits, string }
                 }
                 EPBContent::Enum(enum_def) => to_ir_enum(enum_def)?,
             };

@@ -27,6 +27,7 @@ fn main() {
         ("explicit_item", "explicit_item.xml"),
         ("spare_bits", "spare_bits.xml"),
         ("bench_record", "bench_record.xml"),
+        ("ast_alignment", "ast_alignment.xml"),
     ];
 
     // Generate mod.rs that includes all generated modules

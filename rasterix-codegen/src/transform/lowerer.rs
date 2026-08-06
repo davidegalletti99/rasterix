@@ -124,9 +124,9 @@ fn lower_field(element: &IRElement) -> Result<Option<FieldDescriptor>, CodegenEr
 
 fn field_descriptor_for(element: &IRElement, optional: bool) -> Result<Option<FieldDescriptor>, CodegenError> {
     match element {
-        IRElement::Field { name, bits, is_string } => {
+        IRElement::Field { name, bits, string } => {
             let field_name = to_snake_case(name);
-            if *is_string {
+            if string.is_some() {
                 let byte_len = bits / 8;
                 let type_tokens = if optional {
                     FieldType::OptionalFixedString(byte_len)
@@ -180,12 +180,12 @@ fn lower_element_decode(element: &IRElement) -> Result<DecodeOp, CodegenError> {
 
 fn lower_element_decode_inner(element: &IRElement, is_epb: bool) -> Result<DecodeOp, CodegenError> {
     match element {
-        IRElement::Field { name, bits, is_string } => {
+        IRElement::Field { name, bits, string } => {
             let name = to_snake_case(name);
-            if *is_string {
+            if let Some(kind) = *string {
                 let byte_len = bits / 8;
-                if is_epb { Ok(DecodeOp::ReadEpbString { name, byte_len }) }
-                else { Ok(DecodeOp::ReadString { name, byte_len }) }
+                if is_epb { Ok(DecodeOp::ReadEpbString { name, byte_len, kind }) }
+                else { Ok(DecodeOp::ReadString { name, byte_len, kind }) }
             } else {
                 let rust_type = format_ident!("{}", rust_type_for_bits(*bits));
                 if is_epb { Ok(DecodeOp::ReadEpbField { name, bits: *bits, rust_type }) }
@@ -230,12 +230,12 @@ fn lower_element_encode(element: &IRElement) -> Result<EncodeOp, CodegenError> {
 
 fn lower_element_encode_inner(element: &IRElement, is_epb: bool) -> Result<EncodeOp, CodegenError> {
     match element {
-        IRElement::Field { name, bits, is_string } => {
+        IRElement::Field { name, bits, string } => {
             let name = to_snake_case(name);
-            if *is_string {
+            if let Some(kind) = *string {
                 let byte_len = bits / 8;
-                if is_epb { Ok(EncodeOp::WriteEpbString { name, byte_len }) }
-                else { Ok(EncodeOp::WriteString { name, byte_len }) }
+                if is_epb { Ok(EncodeOp::WriteEpbString { name, byte_len, kind }) }
+                else { Ok(EncodeOp::WriteString { name, byte_len, kind }) }
             } else if is_epb {
                 Ok(EncodeOp::WriteEpbField { name, bits: *bits })
             } else {
@@ -327,8 +327,8 @@ mod tests {
                     layout: IRLayout::Fixed {
                         bytes: 2,
                         elements: vec![
-                            IRElement::Field { name: "sac".to_string(), bits: 8, is_string: false },
-                            IRElement::Field { name: "sic".to_string(), bits: 8, is_string: false },
+                            IRElement::Field { name: "sac".to_string(), bits: 8, string: None },
+                            IRElement::Field { name: "sic".to_string(), bits: 8, string: None },
                         ],
                     },
                 }],
@@ -362,7 +362,7 @@ mod tests {
                     frn: 2,
                     layout: IRLayout::Explicit {
                         bytes: 2,
-                        elements: vec![IRElement::Field { name: "data".to_string(), bits: 16, is_string: false }],
+                        elements: vec![IRElement::Field { name: "data".to_string(), bits: 16, string: None }],
                     },
                 }],
             },
@@ -389,7 +389,7 @@ mod tests {
                     layout: IRLayout::Fixed {
                         bytes: 1,
                         elements: vec![
-                            IRElement::Field { name: "data".to_string(), bits: 3, is_string: false },
+                            IRElement::Field { name: "data".to_string(), bits: 3, string: None },
                             IRElement::Spare { bits: 5 },
                         ],
                     },
@@ -424,7 +424,7 @@ mod tests {
                             content: Box::new(IRElement::Field {
                                 name: "opt_val".to_string(),
                                 bits: 15,
-                                is_string: false,
+                                string: None,
                             }),
                         }],
                     },
@@ -511,13 +511,13 @@ mod tests {
                             IRPartGroup {
                                 index: 0,
                                 elements: vec![
-                                    IRElement::Field { name: "a".to_string(), bits: 3, is_string: false },
-                                    IRElement::Field { name: "b".to_string(), bits: 4, is_string: false },
+                                    IRElement::Field { name: "a".to_string(), bits: 3, string: None },
+                                    IRElement::Field { name: "b".to_string(), bits: 4, string: None },
                                 ],
                             },
                             IRPartGroup {
                                 index: 1,
-                                elements: vec![IRElement::Field { name: "c".to_string(), bits: 7, is_string: false }],
+                                elements: vec![IRElement::Field { name: "c".to_string(), bits: 7, string: None }],
                             },
                         ],
                     },
@@ -554,14 +554,14 @@ mod tests {
                                 index: 1,
                                 layout: IRLayout::Fixed {
                                     bytes: 2,
-                                    elements: vec![IRElement::Field { name: "x".to_string(), bits: 16, is_string: false }],
+                                    elements: vec![IRElement::Field { name: "x".to_string(), bits: 16, string: None }],
                                 },
                             },
                             IRSubItem {
                                 index: 2,
                                 layout: IRLayout::Fixed {
                                     bytes: 1,
-                                    elements: vec![IRElement::Field { name: "y".to_string(), bits: 8, is_string: false }],
+                                    elements: vec![IRElement::Field { name: "y".to_string(), bits: 8, string: None }],
                                 },
                             },
                         ],
@@ -593,7 +593,7 @@ mod tests {
                     frn: 4,
                     layout: IRLayout::Fixed {
                         bytes: 6,
-                        elements: vec![IRElement::Field { name: "aircraft_id".to_string(), bits: 48, is_string: true }],
+                        elements: vec![IRElement::Field { name: "aircraft_id".to_string(), bits: 48, string: Some(StringKind::Icao) }],
                     },
                 }],
             },
@@ -626,7 +626,7 @@ mod tests {
                             content: Box::new(IRElement::Field {
                                 name: "callsign".to_string(),
                                 bits: 48,
-                                is_string: true,
+                                string: Some(StringKind::Icao),
                             }),
                         }],
                     },
@@ -663,7 +663,7 @@ mod tests {
                                 content: Box::new(IRElement::Field {
                                     name: "x".to_string(),
                                     bits: 14,
-                                    is_string: false,
+                                    string: None,
                                 }),
                             }),
                         }],

@@ -123,7 +123,16 @@ pub enum CompoundableItem {
     
     #[serde(rename = "repetitive")]
     Repetitive(RepetitiveItem),
+
+    /// An unassigned FSPEC bit slot: `<spare/>` (no attributes) skips one
+    /// compound FSPEC position without defining a sub-item.
+    #[serde(rename = "spare")]
+    Spare(CompoundSpare),
 }
+
+/// Empty marker for an unassigned compound FSPEC slot.
+#[derive(Debug, Deserialize)]
+pub struct CompoundSpare {}
 
 //
 // Leaf / structural nodes

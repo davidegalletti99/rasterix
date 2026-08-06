@@ -833,3 +833,103 @@ fn roundtrip_extended_first_part_only() {
 
     assert_eq!(block, decoded);
 }
+
+// ============================================================================
+// asterix-specs Alignment Tests (repetitive fx, compound hole, ascii string)
+// ============================================================================
+
+#[test]
+fn roundtrip_repetitive_fx() {
+    use ast_alignment::cat099::*;
+
+    for count in [1, 2, 5] {
+        let original = Item010 {
+            items: (0..count)
+                .map(|i| Item010Element { mode: (i % 4) as u8, value: (i * 3) as u8 })
+                .collect(),
+        };
+
+        let mut buffer = Vec::new();
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+            original.encode(&mut writer).unwrap();
+            writer.flush().unwrap();
+        }
+        // One byte per repetition, FX bit included — no counter prefix.
+        assert_eq!(buffer.len(), count);
+
+        let mut reader = BitReader::new(Cursor::new(&buffer));
+        let decoded = Item010::decode(&mut reader).unwrap();
+        assert_eq!(original, decoded);
+    }
+}
+
+#[test]
+fn repetitive_fx_wire_format() {
+    use ast_alignment::cat099::*;
+
+    // mode=0b11, value=0b10101, FX=0 → 0b11_10101_0 = 0xEA
+    let original = Item010 {
+        items: vec![Item010Element { mode: 0b11, value: 0b10101 }],
+    };
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        original.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    assert_eq!(buffer, vec![0xEA]);
+}
+
+#[test]
+fn repetitive_fx_empty_encode_fails() {
+    use ast_alignment::cat099::*;
+
+    let original = Item010 { items: vec![] };
+    let mut buffer = Vec::new();
+    let mut writer = BitWriter::new(&mut buffer);
+    assert!(original.encode(&mut writer).is_err());
+}
+
+#[test]
+fn roundtrip_compound_with_fspec_hole() {
+    use ast_alignment::cat099::*;
+
+    let original = Item020 {
+        sub1: Some(Item020Sub1 { alpha: 0xAB }),
+        sub3: Some(Item020Sub3 { beta: 0x1234 }),
+    };
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        original.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    // The <spare/> slot skips FSPEC bit 2: sub1 → 0x80, sub3 → 0x20.
+    assert_eq!(buffer, vec![0xA0, 0xAB, 0x12, 0x34]);
+
+    let mut reader = BitReader::new(Cursor::new(&buffer));
+    let decoded = Item020::decode(&mut reader).unwrap();
+    assert_eq!(original, decoded);
+}
+
+#[test]
+fn roundtrip_ascii_string() {
+    use ast_alignment::cat099::*;
+
+    let original = Item030 { designator: "AB1".to_string() };
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        original.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    // Plain ASCII bytes, space-padded to 4 bytes.
+    assert_eq!(buffer, vec![0x41, 0x42, 0x31, 0x20]);
+
+    let mut reader = BitReader::new(Cursor::new(&buffer));
+    let decoded = Item030::decode(&mut reader).unwrap();
+    assert_eq!(original, decoded);
+}

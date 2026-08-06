@@ -103,7 +103,7 @@ fn transform_repetitive_layout() {
     match &ir.category.items[0].layout {
         IRLayout::Repetitive { bytes, counter_bits, elements } => {
             assert!(*bytes > 0);
-            assert!(*counter_bits > 0);
+            assert_eq!(*counter_bits, Some(5));
             assert!(!elements.is_empty());
         }
         _ => panic!("Expected Repetitive layout"),
@@ -134,10 +134,10 @@ fn transform_field_element() {
     match &ir.category.items[0].layout {
         IRLayout::Fixed { elements, .. } => {
             match &elements[0] {
-                IRElement::Field { name, bits, is_string } => {
+                IRElement::Field { name, bits, string } => {
                     assert_eq!(name, "sac");
                     assert_eq!(*bits, 8);
-                    assert_eq!(*is_string, false);
+                    assert_eq!(*string, None);
                 }
                 _ => panic!("Expected Field element"),
             }

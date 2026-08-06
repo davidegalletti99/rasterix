@@ -92,6 +92,23 @@ impl<W: Write> BitWriter<W> {
         Ok(())
     }
 
+    /// Writes a fixed-length ASTERIX string field of plain 8-bit ASCII
+    /// characters.
+    ///
+    /// Writes exactly `byte_len` bytes; `s` is space-padded if shorter, or
+    /// truncated if longer. Non-ASCII bytes are replaced with `' '`.
+    pub fn write_ascii_string(&mut self, s: &str, byte_len: usize) -> io::Result<()> {
+        let bytes = s.as_bytes();
+        for i in 0..byte_len {
+            let byte = match bytes.get(i) {
+                Some(b) if b.is_ascii() => *b,
+                _ => b' ',
+            };
+            self.write_bits(byte as u64, 8)?;
+        }
+        Ok(())
+    }
+
     /// Returns true if the writer is at a byte boundary (no partial byte buffered).
     #[cfg(test)]
     pub fn is_byte_aligned(&self) -> bool {

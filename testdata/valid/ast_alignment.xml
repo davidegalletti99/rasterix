@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exercises the asterix-specs alignment features:
+     FX-terminated repetitive, compound FSPEC hole, ASCII string field. -->
+<category id="099">
+    <item id="010" frn="1">
+        <repetitive bytes="1" counter="fx">
+            <field name="mode" bits="2"/>
+            <field name="value" bits="5"/>
+        </repetitive>
+    </item>
+    <item id="020" frn="2">
+        <compound>
+            <fixed bytes="1">
+                <field name="alpha" bits="8"/>
+            </fixed>
+            <spare/>
+            <fixed bytes="2">
+                <field name="beta" bits="16"/>
+            </fixed>
+        </compound>
+    </item>
+    <item id="030" frn="3">
+        <fixed bytes="4">
+            <field name="designator" bits="32" type="ascii"/>
+        </fixed>
+    </item>
+</category>

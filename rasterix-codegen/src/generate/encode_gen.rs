@@ -1,7 +1,15 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-use crate::transform::lower_ir::{EncodeOp, LoweredPart};
+use crate::transform::lower_ir::{EncodeOp, LoweredPart, StringKind};
+
+/// Returns the BitWriter method used to write a string of the given kind.
+fn write_string_fn(kind: StringKind) -> Ident {
+    match kind {
+        StringKind::Icao => quote::format_ident!("write_string"),
+        StringKind::Ascii => quote::format_ident!("write_ascii_string"),
+    }
+}
 
 /// Emits a single encode operation as a TokenStream.
 fn emit_encode_op(op: &EncodeOp) -> TokenStream {
@@ -38,19 +46,21 @@ fn emit_encode_op(op: &EncodeOp) -> TokenStream {
                 }
             }
         }
-        EncodeOp::WriteString { name, byte_len } => {
+        EncodeOp::WriteString { name, byte_len, kind } => {
+            let write_fn = write_string_fn(*kind);
             quote! {
-                writer.write_string(&self.#name, #byte_len)?;
+                writer.#write_fn(&self.#name, #byte_len)?;
             }
         }
-        EncodeOp::WriteEpbString { name, byte_len } => {
+        EncodeOp::WriteEpbString { name, byte_len, kind } => {
+            let write_fn = write_string_fn(*kind);
             quote! {
                 if let Some(ref value) = self.#name {
                     writer.write_bits(1, 1)?; // Valid bit
-                    writer.write_string(value, #byte_len)?;
+                    writer.#write_fn(value, #byte_len)?;
                 } else {
                     writer.write_bits(0, 1)?; // Invalid bit
-                    writer.write_string("", #byte_len)?; // Write empty padded string
+                    writer.#write_fn("", #byte_len)?; // Write empty padded string
                 }
             }
         }
@@ -162,14 +172,39 @@ pub fn generate_extended_encode(
 
 /// Generates encode implementation for a Repetitive item.
 ///
-/// Wire format: [counter: counter_bits bits][element 0]...[element N-1]
+/// Wire format with counter: [counter: counter_bits bits][element 0]...[element N-1]
+/// Wire format FX-terminated: [element][FX]... with FX = 1 while more follow
 pub fn generate_repetitive_encode(
     name: &Ident,
-    counter_bits: usize,
+    counter_bits: Option<usize>,
     element_type_name: &Ident,
     encode_ops: &[EncodeOp],
 ) -> TokenStream {
     let element_encodes: Vec<_> = encode_ops.iter().map(emit_encode_op).collect();
+
+    let encode_body = match counter_bits {
+        Some(counter_bits) => quote! {
+            // Write the repetition counter
+            writer.write_bits(self.items.len() as u64, #counter_bits)?;
+            for item in &self.items {
+                item.encode(writer)?;
+            }
+        },
+        None => quote! {
+            // FX-terminated: at least one repetition must be present, each
+            // followed by an FX bit (1 = another repetition follows)
+            if self.items.is_empty() {
+                return Err(DecodeError::InvalidData(
+                    "FX-terminated repetitive item requires at least one repetition",
+                ));
+            }
+            let last = self.items.len() - 1;
+            for (i, item) in self.items.iter().enumerate() {
+                item.encode(writer)?;
+                writer.write_bits((i != last) as u64, 1)?; // FX bit
+            }
+        },
+    };
 
     quote! {
         impl #element_type_name {
@@ -187,11 +222,7 @@ pub fn generate_repetitive_encode(
                 &self,
                 writer: &mut BitWriter<W>,
             ) -> Result<(), DecodeError> {
-                // Write the repetition counter
-                writer.write_bits(self.items.len() as u64, #counter_bits)?;
-                for item in &self.items {
-                    item.encode(writer)?;
-                }
+                #encode_body
                 Ok(())
             }
         }

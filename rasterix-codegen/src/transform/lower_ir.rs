@@ -1,5 +1,7 @@
 use proc_macro2::Ident;
 
+pub use super::ir::StringKind;
+
 // ── Lowered IR Types ──────────────────────────────────────────────────────
 
 /// Top-level lowered representation of a complete ASTERIX category.
@@ -48,7 +50,8 @@ pub enum LoweredItemKind {
     },
     Repetitive {
         element_type_name: Ident,
-        counter_bits: usize,
+        /// None = FX-terminated repetitions (no counter prefix)
+        counter_bits: Option<usize>,
         fields: Vec<FieldDescriptor>,
         decode_ops: Vec<DecodeOp>,
         encode_ops: Vec<EncodeOp>,
@@ -127,8 +130,8 @@ pub enum DecodeOp {
     ReadEnum { name: Ident, bits: usize, enum_type: Ident },
     ReadEpbField { name: Ident, bits: usize, rust_type: Ident },
     ReadEpbEnum { name: Ident, bits: usize, enum_type: Ident },
-    ReadString { name: Ident, byte_len: usize },
-    ReadEpbString { name: Ident, byte_len: usize },
+    ReadString { name: Ident, byte_len: usize, kind: StringKind },
+    ReadEpbString { name: Ident, byte_len: usize, kind: StringKind },
     SkipSpare { bits: usize },
     ReadLengthByte,
 }
@@ -142,8 +145,8 @@ pub enum EncodeOp {
     WriteEnum { name: Ident, bits: usize },
     WriteEpbField { name: Ident, bits: usize },
     WriteEpbEnum { name: Ident, bits: usize },
-    WriteString { name: Ident, byte_len: usize },
-    WriteEpbString { name: Ident, byte_len: usize },
+    WriteString { name: Ident, byte_len: usize, kind: StringKind },
+    WriteEpbString { name: Ident, byte_len: usize, kind: StringKind },
     WriteSpare { bits: usize },
     WriteLengthByte { total_bytes: usize },
 }

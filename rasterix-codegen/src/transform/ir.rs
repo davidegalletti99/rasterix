@@ -80,15 +80,20 @@ pub enum IRLayout {
         part_groups: Vec<IRPartGroup>,
     },
     
-    /// Repetitive item — variable-length, prefixed by a counter.
+    /// Repetitive item — variable-length, prefixed by a counter or
+    /// FX-terminated.
     ///
-    /// Wire format: [counter: counter_bits bits][repetition 0]...[repetition N-1]
+    /// Wire format with counter: [counter: counter_bits bits][rep 0]...[rep N-1]
+    /// Wire format FX-terminated (counter_bits = None): each repetition holds
+    /// bytes*8 - 1 element bits followed by 1 FX bit (1 = another follows).
     Repetitive {
-        /// Size in bytes of a single repetition
+        /// Size in bytes of a single repetition (including the FX bit for
+        /// FX-terminated items)
         bytes: usize,
 
-        /// Width in bits of the counter prefixing the repetitions (1-64)
-        counter_bits: usize,
+        /// Width in bits of the counter prefixing the repetitions (1-64),
+        /// or None for FX-terminated repetitions
+        counter_bits: Option<usize>,
 
         /// Elements in a single repetition
         elements: Vec<IRElement>,
@@ -128,9 +133,18 @@ pub struct IRSubItem {
     pub layout: IRLayout,
 }
 
+/// On-wire character encoding for string fields.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StringKind {
+    /// ICAO 6-bit character codes (ICAO Annex 10) — e.g. aircraft identification
+    Icao,
+    /// Plain 8-bit ASCII characters
+    Ascii,
+}
+
 /// Individual elements within an item structure.
-/// 
-/// These represent the actual data fields, enumerations, and structural 
+///
+/// These represent the actual data fields, enumerations, and structural
 /// markers.
 #[derive(Debug)]
 pub enum IRElement {
@@ -138,12 +152,12 @@ pub enum IRElement {
     Field {
         /// Field name
         name: String,
-        
+
         /// Number of bits
         bits: usize,
 
-        /// Whether this field should be treated as a string
-        is_string: bool,
+        /// String encoding, or None for a numeric field
+        string: Option<StringKind>,
     },
     
     /// An Extended Primary Bit field - field/enum with automatic validity bit.
@@ -237,9 +251,14 @@ impl IRLayout {
                 }
             }
 
-            IRLayout::Repetitive { bytes, elements, .. } => {
+            IRLayout::Repetitive { bytes, counter_bits, elements } => {
                 let total_bits: usize = elements.iter().map(|e| e.bit_size()).sum();
-                let expected_bits = bytes * 8;
+                // FX-terminated repetitions reserve the last bit of each
+                // repetition for the FX bit.
+                let expected_bits = match counter_bits {
+                    Some(_) => bytes * 8,
+                    None => bytes * 8 - 1,
+                };
                 if total_bits != expected_bits {
                     return Err(CodegenError::BitCountMismatch {
                         context: context.to_string(),

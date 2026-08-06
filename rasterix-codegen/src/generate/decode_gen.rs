@@ -1,7 +1,15 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote};
 
-use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredPart};
+use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredPart, StringKind};
+
+/// Returns the BitReader method used to read a string of the given kind.
+fn read_string_fn(kind: StringKind) -> Ident {
+    match kind {
+        StringKind::Icao => quote::format_ident!("read_string"),
+        StringKind::Ascii => quote::format_ident!("read_ascii_string"),
+    }
+}
 
 /// Emits a single decode operation as a TokenStream.
 fn emit_decode_op(op: &DecodeOp) -> TokenStream {
@@ -42,19 +50,21 @@ fn emit_decode_op(op: &DecodeOp) -> TokenStream {
                 };
             }
         }
-        DecodeOp::ReadString { name, byte_len } => {
+        DecodeOp::ReadString { name, byte_len, kind } => {
+            let read_fn = read_string_fn(*kind);
             quote! {
-                let #name = reader.read_string(#byte_len)?;
+                let #name = reader.#read_fn(#byte_len)?;
             }
         }
-        DecodeOp::ReadEpbString { name, byte_len } => {
+        DecodeOp::ReadEpbString { name, byte_len, kind } => {
+            let read_fn = read_string_fn(*kind);
             quote! {
                 let #name = {
                     let valid = reader.read_bits(1)? != 0;
                     if valid {
-                        Some(reader.read_string(#byte_len)?)
+                        Some(reader.#read_fn(#byte_len)?)
                     } else {
-                        reader.read_string(#byte_len)?; // Skip the value
+                        reader.#read_fn(#byte_len)?; // Skip the value
                         None
                     }
                 };
@@ -195,16 +205,39 @@ pub fn generate_extended_decode(
 
 /// Generates decode implementation for a Repetitive item.
 ///
-/// Wire format: [counter: counter_bits bits][element 0]...[element N-1]
+/// Wire format with counter: [counter: counter_bits bits][element 0]...[element N-1]
+/// Wire format FX-terminated: [element][FX]... with FX = 1 while more follow
 pub fn generate_repetitive_decode(
     name: &Ident,
-    counter_bits: usize,
+    counter_bits: Option<usize>,
     element_type_name: &Ident,
     decode_ops: &[DecodeOp],
     fields: &[FieldDescriptor],
 ) -> TokenStream {
     let element_decodes: Vec<_> = decode_ops.iter().map(emit_decode_op).collect();
     let field_names: Vec<_> = fields.iter().map(|f| &f.name).collect();
+
+    let decode_body = match counter_bits {
+        Some(counter_bits) => quote! {
+            // Read the repetition counter
+            let count = reader.read_bits(#counter_bits)? as usize;
+            let mut items = Vec::with_capacity(count);
+            for _ in 0..count {
+                items.push(#element_type_name::decode(reader)?);
+            }
+        },
+        None => quote! {
+            // FX-terminated: each repetition ends with an FX bit,
+            // 1 = another repetition follows
+            let mut items = Vec::new();
+            loop {
+                items.push(#element_type_name::decode(reader)?);
+                if reader.read_bits(1)? == 0 {
+                    break;
+                }
+            }
+        },
+    };
 
     quote! {
         impl #element_type_name {
@@ -223,12 +256,7 @@ pub fn generate_repetitive_decode(
             fn decode<R: std::io::Read>(
                 reader: &mut BitReader<R>,
             ) -> Result<Self, DecodeError> {
-                // Read the repetition counter
-                let count = reader.read_bits(#counter_bits)? as usize;
-                let mut items = Vec::with_capacity(count);
-                for _ in 0..count {
-                    items.push(#element_type_name::decode(reader)?);
-                }
+                #decode_body
 
                 Ok(Self { items })
             }
