@@ -7,9 +7,30 @@
 use crate::error::CodegenError;
 
 /// Top-level IR structure representing a complete ASTERIX category.
+///
+/// Build it with [`IR::new`], which validates the tree. Every frontend (XML,
+/// JSON, `.ast`) converges here, so validation lives in the constructor rather
+/// than in each frontend.
 #[derive(Debug)]
 pub struct IR {
     pub category: IRCategory,
+}
+
+impl IR {
+    /// Builds the IR for a category and validates every item's layout.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CodegenError::BitCountMismatch`],
+    /// [`CodegenError::ExtendedByteMismatch`] or
+    /// [`CodegenError::PartGroupBitMismatch`] if an item's elements do not
+    /// match its declared size. See [`IRLayout::validate`].
+    pub fn new(id: u8, items: Vec<IRItem>) -> Result<Self, CodegenError> {
+        for item in &items {
+            item.layout.validate(&format!("I{:03}", item.id))?;
+        }
+        Ok(IR { category: IRCategory { id, items } })
+    }
 }
 
 /// A category containing multiple data items.

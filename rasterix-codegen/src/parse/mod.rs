@@ -1,14 +1,17 @@
 pub mod xml_model;
 
+use crate::error::CodegenError;
 use xml_model::Category;
 
-/// Parses the given XML string into a Category struct.
+/// Parses an XML category definition.
 ///
-/// # Arguments
-/// * `xml` - A string slice that holds the XML data.
+/// # Errors
 ///
-/// # Returns
-/// * `Result<Category, quick_xml::DeError>` - The parsed Category or an error if parsing fails.
-pub fn parse_category(xml: &str) -> Result<Category, quick_xml::DeError> {
-    quick_xml::de::from_str(xml)
+/// Returns [`CodegenError::Parse`] if `xml` is malformed or does not match the
+/// expected structure.
+pub fn parse_category(xml: &str) -> Result<Category, CodegenError> {
+    quick_xml::de::from_str(xml).map_err(|source| CodegenError::Parse {
+        format: "XML",
+        source: Box::new(source),
+    })
 }

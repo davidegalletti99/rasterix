@@ -6,7 +6,15 @@ use crate::{
     CodegenError,
 };
 
+/// Definition file extensions [`build`] recognises.
+///
+/// Adding a frontend means one entry here and one arm in [`build`].
+pub const SUPPORTED_FORMATS: &[&str] = &["xml"];
+
 /// Builds Rust code from an in-memory XML string.
+///
+/// Sibling formats get their own `build_*_str` entry point; [`build`] picks
+/// between them by file extension.
 ///
 /// # Errors
 ///
@@ -20,17 +28,43 @@ pub fn build_str(xml: &str) -> Result<String, CodegenError> {
     Ok(tokens.to_string())
 }
 
-/// Builds Rust code from an XML file.
+/// Builds Rust code from a definition file, choosing the frontend by extension.
 ///
 /// # Errors
 ///
+/// Returns [`CodegenError::UnsupportedFormat`] if the extension names no known
+/// format (see [`SUPPORTED_FORMATS`]).
 /// Returns [`CodegenError::Io`] if the file cannot be read.
-/// Returns [`CodegenError::Parse`] if the XML is malformed.
+/// Returns [`CodegenError::Parse`] if the definition is malformed.
 /// Returns other [`CodegenError`] variants if the definition fails validation or lowering.
 pub fn build(file_path: &str) -> Result<String, CodegenError> {
-    let xml = fs::read_to_string(file_path)
+    let extension = format_of(file_path);
+
+    // One arm per frontend; the extension is checked before the file is read.
+    let build_source: fn(&str) -> Result<String, CodegenError> = match extension.as_str() {
+        "xml" => build_str,
+        _ => {
+            return Err(CodegenError::UnsupportedFormat {
+                path: file_path.to_string(),
+                extension,
+                supported: SUPPORTED_FORMATS.join(", "),
+            })
+        }
+    };
+
+    let source = fs::read_to_string(file_path)
         .map_err(|source| CodegenError::Io { path: file_path.to_string(), source })?;
-    build_str(&xml)
+
+    build_source(&source)
+}
+
+/// Returns a path's extension, lowercased, or an empty string if it has none.
+fn format_of(path: &str) -> String {
+    PathBuf::from(path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
 }
 
 /// Builds code from a single file and writes it to the output directory.
@@ -58,7 +92,7 @@ pub fn build_file(input_path: &str, output_dir: &str) -> Result<PathBuf, Codegen
     Ok(output_path)
 }
 
-/// Builds code from all XML files in a directory.
+/// Builds code from every supported definition file in a directory.
 ///
 /// Per-file generation failures are logged to stderr and skipped; only directory-level
 /// I/O errors (unreadable directory, non-UTF-8 path) cause this to return `Err`.
@@ -78,10 +112,9 @@ pub fn build_directory(input_dir: &str, output_dir: &str) -> Result<Vec<PathBuf>
             .map_err(|source| CodegenError::Io { path: input_dir.to_string(), source })?;
         let path = entry.path();
 
-        if path.extension().and_then(|s| s.to_str()) == Some("xml") {
-            let input_path = path.to_str()
-                .ok_or(CodegenError::InvalidPath)?;
+        let input_path = path.to_str().ok_or(CodegenError::InvalidPath)?;
 
+        if SUPPORTED_FORMATS.contains(&format_of(input_path).as_str()) {
             match build_file(input_path, output_dir) {
                 Ok(output_path) => {
                     println!("Generated: {output_path:?}");
@@ -111,6 +144,25 @@ fn extract_output_filename(input_path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn build_rejects_unknown_extension_before_reading() {
+        // The format check runs before the file is read, so a missing file with
+        // an unknown extension still reports the format, not I/O.
+        let err = build("nowhere/cat048.ast").expect_err("'.ast' is not wired up yet");
+        assert!(
+            matches!(&err, CodegenError::UnsupportedFormat { extension, .. } if extension == "ast"),
+            "expected UnsupportedFormat, got: {err}"
+        );
+    }
+
+    #[test]
+    fn build_matches_extension_case_insensitively() {
+        // ".XML" dispatches to the XML frontend, so this fails on the missing
+        // file rather than on the format.
+        let err = build("nowhere/cat048.XML").expect_err("the file does not exist");
+        assert!(matches!(err, CodegenError::Io { .. }), "expected Io, got: {err}");
+    }
 
     #[test]
     fn test_extract_output_filename() {

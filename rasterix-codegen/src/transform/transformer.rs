@@ -16,18 +16,10 @@ use crate::transform::ir::*;
 /// - [`CodegenError::ExtendedByteMismatch`] — declared byte count differs from the number of part groups
 /// - [`CodegenError::PartGroupBitMismatch`] — a part group's elements do not sum to 7 data bits
 pub fn to_ir(cat: Category) -> Result<IR, CodegenError> {
-    let ir_category = to_ir_category(cat)?;
-    for item in &ir_category.items {
-        item.layout.validate(&format!("I{:03}", item.id))?;
-    }
-    Ok(IR { category: ir_category })
-}
-
-fn to_ir_category(cat: Category) -> Result<IRCategory, CodegenError> {
     let items = cat.items.into_iter()
         .map(to_ir_item)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(IRCategory { id: cat.id, items })
+    IR::new(cat.id, items)
 }
 
 fn to_ir_item(item: Item) -> Result<IRItem, CodegenError> {

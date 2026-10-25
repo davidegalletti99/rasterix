@@ -17,17 +17,30 @@ pub enum CodegenError {
         source: std::io::Error,
     },
 
-    // ── XML parse ────────────────────────────────────────────────────────
-    /// The XML input could not be deserialized into the expected structure.
-    #[error("Failed to parse XML: {source}")]
+    // ── Frontend parse ───────────────────────────────────────────────────
+    /// The input could not be deserialized into the expected structure.
+    ///
+    /// `format` names the frontend that rejected it, so every definition format
+    /// shares one variant instead of leaking its own parser's error type into
+    /// the public API.
+    #[error("Failed to parse {format}: {source}")]
     Parse {
-        #[from]
-        source: quick_xml::DeError,
+        format: &'static str,
+        #[source]
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
+
+    /// A definition file's extension does not name a supported format.
+    #[error("Unsupported definition format '{extension}' for '{path}': expected one of {supported}")]
+    UnsupportedFormat {
+        path: String,
+        extension: String,
+        supported: String,
     },
 
     // ── Transform / validation ───────────────────────────────────────────
-    /// A `<field>` element has a `type` attribute that is neither `"string"` nor `"numeric"`.
-    #[error("Invalid field type '{field_type}' for field '{field_name}': expected 'string' or 'numeric'")]
+    /// A `<field>` element has a `type` attribute that names no known encoding.
+    #[error("Invalid field type '{field_type}' for field '{field_name}': expected 'numeric', 'string', 'icao' or 'ascii'")]
     InvalidFieldType { field_name: String, field_type: String },
 
     /// The counter value in a `<repetitive>` item is not a valid integer.
