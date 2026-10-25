@@ -1,40 +1,32 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::error::CodegenError;
-use crate::transform::{lowerer, ir::IR, lower_ir::LoweredIR};
-use super::{item_gen::generate_item, record_gen::generate_record, datablock_gen::generate_datablock};
+use crate::transform::ir::IR;
+use super::{
+    datablock_gen::generate_datablock, item_gen::generate_item, record_gen::generate_record,
+    utils::{item_struct_name, module_name},
+};
 
 /// Main code generation orchestrator.
 ///
-/// Lowers the semantic IR into a flat representation, then produces
-/// a complete Rust module containing:
+/// Produces a complete Rust module containing:
 /// - All necessary imports
-/// - Category record struct (Cat{N}Record)
+/// - Category record struct
 /// - All item structs (Item{N})
 /// - All enum definitions
 /// - All decode/encode implementations
 ///
-/// # Arguments
-///
-/// * `ir` - The validated intermediate representation
-///
-/// # Returns
-///
-/// A TokenStream containing the complete generated module.
-pub fn generate(ir: &IR) -> Result<TokenStream, CodegenError> {
-    let lowered = lowerer::lower(ir)?;
-    Ok(generate_from_lowered(&lowered))
-}
+/// Takes a validated [`IR`] — every structural invariant the generators rely
+/// on is checked by [`IR::new`], so generation itself cannot fail.
+pub fn generate(ir: &IR) -> TokenStream {
+    let category = &ir.category;
+    let module_name = module_name(category.id);
 
-fn generate_from_lowered(lowered: &LoweredIR) -> TokenStream {
-    let module_name = &lowered.module_name;
+    let record = generate_record(category);
+    let datablock = generate_datablock(category.id);
 
-    let record = generate_record(&lowered.record);
-    let datablock = generate_datablock(lowered);
-
-    let items: Vec<_> = lowered.items.iter()
-        .map(generate_item)
+    let items: Vec<_> = category.items.iter()
+        .map(|item| generate_item(&item_struct_name(item.id), &item.layout))
         .collect();
 
     quote! {
@@ -93,28 +85,24 @@ mod tests {
                 },
             },
         ];
-        let ir = IR {
-            category: IRCategory {
-                id: 48,
-                items,
-            },
-        };
+        let ir = IR::new(48, items).expect("the fixture is valid");
 
-        let result = generate(&ir).expect("generate should succeed");
-        let code = result.to_string();
+        let code = generate(&ir).to_string();
 
         let expected_fragments = [
             // Check for imports (quote! adds spaces around :: and braces)
             "use rasterix :: rcore",
             "Decode",
             "Encode",
+            // Check for module
+            "pub mod cat048",
             // Check for record
             "pub struct Record",
             // Check for data block
             "pub struct DataBlock",
             "impl Encode for DataBlock",
             "impl Decode for DataBlock",
-            // Check for item asd fields
+            // Check for item and fields
             "pub struct Item010",
             "pub sac : u8",
             "pub sic : u8",

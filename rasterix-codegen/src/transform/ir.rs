@@ -231,15 +231,39 @@ impl IRElement {
     }
 }
 
+/// Checks the structural invariants code generation relies on: an EPB wraps
+/// exactly one field or enum, never another EPB and never a spare.
+fn validate_element(element: &IRElement) -> Result<(), CodegenError> {
+    if let IRElement::EPB { content } = element {
+        return match content.as_ref() {
+            IRElement::EPB { .. } => Err(CodegenError::NestedEpb),
+            IRElement::Spare { .. } => Err(CodegenError::EpbContainsSpare),
+            _ => Ok(()),
+        };
+    }
+    Ok(())
+}
+
+/// Sums the elements' bit widths, checking each element's structure on the way.
+fn validate_elements(elements: &[IRElement]) -> Result<usize, CodegenError> {
+    let mut total_bits = 0;
+    for element in elements {
+        validate_element(element)?;
+        total_bits += element.bit_size();
+    }
+    Ok(total_bits)
+}
+
 impl IRLayout {
-    /// Validates that the total bit count matches the declared byte size.
+    /// Validates the layout: element bit counts match the declared byte size,
+    /// and the structure is one the generators can emit.
     ///
     /// Returns an error if validation fails.
     pub fn validate(&self, context: &str) -> Result<(), CodegenError> {
         match self {
             IRLayout::Fixed { bytes, elements }
             | IRLayout::Explicit { bytes, elements } => {
-                let total_bits: usize = elements.iter().map(|e| e.bit_size()).sum();
+                let total_bits = validate_elements(elements)?;
                 let expected_bits = bytes * 8;
                 if total_bits != expected_bits {
                     return Err(CodegenError::BitCountMismatch {
@@ -261,7 +285,7 @@ impl IRLayout {
                     });
                 }
                 for group in part_groups {
-                    let total_bits: usize = group.elements.iter().map(|e| e.bit_size()).sum();
+                    let total_bits = validate_elements(&group.elements)?;
                     if total_bits != 7 {
                         return Err(CodegenError::PartGroupBitMismatch {
                             context: context.to_string(),
@@ -273,7 +297,7 @@ impl IRLayout {
             }
 
             IRLayout::Repetitive { bytes, counter_bits, elements } => {
-                let total_bits: usize = elements.iter().map(|e| e.bit_size()).sum();
+                let total_bits = validate_elements(elements)?;
                 // FX-terminated repetitions reserve the last bit of each
                 // repetition for the FX bit.
                 let expected_bits = match counter_bits {
@@ -292,6 +316,11 @@ impl IRLayout {
 
             IRLayout::Compound { sub_items } => {
                 for sub_item in sub_items {
+                    // A compound's FSPEC addresses one level of sub-items, so a
+                    // sub-item cannot itself be a compound.
+                    if matches!(sub_item.layout, IRLayout::Compound { .. }) {
+                        return Err(CodegenError::NestedCompound);
+                    }
                     sub_item.layout.validate(
                         &format!("{context} sub-item {}", sub_item.index)
                     )?;
@@ -299,5 +328,71 @@ impl IRLayout {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn field(name: &str, bits: usize) -> IRElement {
+        IRElement::Field { name: name.into(), bits, string: None }
+    }
+
+    fn fixed(bytes: usize, elements: Vec<IRElement>) -> IRLayout {
+        IRLayout::Fixed { bytes, elements }
+    }
+
+    #[test]
+    fn new_validates_every_item() {
+        let items = vec![IRItem { id: 10, frn: 1, layout: fixed(2, vec![field("sac", 8)]) }];
+
+        let err = IR::new(48, items).expect_err("8 bits do not fill 2 bytes");
+        assert!(matches!(err, CodegenError::BitCountMismatch { .. }), "got: {err}");
+    }
+
+    #[test]
+    fn nested_epb_is_rejected() {
+        let layout = fixed(
+            1,
+            vec![IRElement::EPB {
+                content: Box::new(IRElement::EPB { content: Box::new(field("alt", 6)) }),
+            }],
+        );
+
+        assert!(matches!(layout.validate("I048/010"), Err(CodegenError::NestedEpb)));
+    }
+
+    #[test]
+    fn epb_wrapping_a_spare_is_rejected() {
+        // An EPB's presence bit guards a value; a spare has none to guard.
+        let layout = fixed(
+            1,
+            vec![IRElement::EPB { content: Box::new(IRElement::Spare { bits: 7 }) }],
+        );
+
+        assert!(matches!(layout.validate("I048/010"), Err(CodegenError::EpbContainsSpare)));
+    }
+
+    #[test]
+    fn nested_compound_is_rejected() {
+        // A compound's FSPEC addresses one level of sub-items only.
+        let layout = IRLayout::Compound {
+            sub_items: vec![IRSubItem {
+                index: 1,
+                layout: IRLayout::Compound { sub_items: vec![] },
+            }],
+        };
+
+        assert!(matches!(layout.validate("I048/250"), Err(CodegenError::NestedCompound)));
+    }
+
+    #[test]
+    fn epb_bit_size_counts_its_presence_bit() {
+        let epb = IRElement::EPB { content: Box::new(field("alt", 15)) };
+        assert_eq!(epb.bit_size(), 16);
+
+        // So a 15-bit field behind an EPB fills exactly two bytes.
+        assert!(fixed(2, vec![epb]).validate("I048/010").is_ok());
     }
 }

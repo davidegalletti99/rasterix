@@ -1,101 +1,50 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
-use crate::transform::lower_ir::{LoweredItem, LoweredItemKind, LoweredSubItem};
+use crate::transform::ir::{IRLayout, IRSubItem};
 use super::{
-    struct_gen::*,
-    decode_gen::*,
-    encode_gen::*,
-    enum_gen::*,
+    decode_gen::generate_decode,
+    encode_gen::generate_encode,
+    enum_gen::{collect_enums, generate_enum},
+    struct_gen::generate_structs,
+    utils::{frn_to_fspec_position, sub_field_name, sub_struct_name},
 };
 
-/// Generates all code for a single ASTERIX item from its lowered representation.
-pub fn generate_item(item: &LoweredItem) -> TokenStream {
-    let item_name = &item.name;
-    let enum_defs: Vec<_> = item.enums.iter().map(generate_enum).collect();
-
-    match &item.kind {
-        LoweredItemKind::Simple { fields, decode_ops, encode_ops, .. } => {
-            let struct_def = generate_struct(item_name, fields);
-            let decode_impl = generate_simple_decode(item_name, decode_ops, fields);
-            let encode_impl = generate_simple_encode(item_name, encode_ops);
-            quote! { #(#enum_defs)* #struct_def #decode_impl #encode_impl }
+/// Generates all code for a single ASTERIX item: its enums, structs and codec.
+pub fn generate_item(name: &Ident, layout: &IRLayout) -> TokenStream {
+    match layout {
+        IRLayout::Compound { sub_items } => generate_compound_item(name, sub_items),
+        _ => {
+            let enums = collect_enums(layout).iter().map(generate_enum).collect::<Vec<_>>();
+            let structs = generate_structs(name, layout);
+            let decode = generate_decode(name, layout);
+            let encode = generate_encode(name, layout);
+            quote! { #(#enums)* #structs #decode #encode }
         }
-        LoweredItemKind::Extended { parts } => {
-            let struct_def = generate_extended_structs(item_name, parts);
-            let decode_impl = generate_extended_decode(item_name, parts);
-            let encode_impl = generate_extended_encode(item_name, parts);
-            quote! { #(#enum_defs)* #struct_def #decode_impl #encode_impl }
-        }
-        LoweredItemKind::Repetitive { element_type_name, counter_bits, fields, decode_ops, encode_ops } => {
-            let struct_def = generate_repetitive_struct(item_name, element_type_name, fields);
-            let decode_impl = generate_repetitive_decode(item_name, *counter_bits, element_type_name, decode_ops, fields);
-            let encode_impl = generate_repetitive_encode(item_name, *counter_bits, element_type_name, encode_ops);
-            quote! { #(#enum_defs)* #struct_def #decode_impl #encode_impl }
-        }
-        LoweredItemKind::Compound { sub_items } => generate_compound_item(item_name, sub_items),
     }
 }
 
-fn generate_sub_item_struct(sub: &LoweredSubItem) -> TokenStream {
-    match &sub.kind {
-        LoweredItemKind::Simple { fields, .. } => generate_struct(&sub.struct_name, fields),
-        LoweredItemKind::Extended { parts } => generate_extended_structs(&sub.struct_name, parts),
-        LoweredItemKind::Repetitive { element_type_name, fields, .. } => {
-            generate_repetitive_struct(&sub.struct_name, element_type_name, fields)
-        }
-        LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
-    }
-}
-
-fn generate_sub_item_decode(sub: &LoweredSubItem) -> TokenStream {
-    match &sub.kind {
-        LoweredItemKind::Simple { decode_ops, fields, .. } => {
-            generate_simple_decode(&sub.struct_name, decode_ops, fields)
-        }
-        LoweredItemKind::Extended { parts } => generate_extended_decode(&sub.struct_name, parts),
-        LoweredItemKind::Repetitive { element_type_name, counter_bits, decode_ops, fields, .. } => {
-            generate_repetitive_decode(&sub.struct_name, *counter_bits, element_type_name, decode_ops, fields)
-        }
-        LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
-    }
-}
-
-fn generate_sub_item_encode(sub: &LoweredSubItem) -> TokenStream {
-    match &sub.kind {
-        LoweredItemKind::Simple { encode_ops, .. } => generate_simple_encode(&sub.struct_name, encode_ops),
-        LoweredItemKind::Extended { parts } => generate_extended_encode(&sub.struct_name, parts),
-        LoweredItemKind::Repetitive { element_type_name, counter_bits, encode_ops, .. } => {
-            generate_repetitive_encode(&sub.struct_name, *counter_bits, element_type_name, encode_ops)
-        }
-        LoweredItemKind::Compound { .. } => unreachable!("NestedCompound should have been caught in lowerer"),
-    }
-}
-
-fn generate_compound_item(name: &Ident, sub_items: &[LoweredSubItem]) -> TokenStream {
-    let mut sub_enum_defs = Vec::new();
-    let mut sub_structs = Vec::new();
-    let mut sub_decode_impls = Vec::new();
-    let mut sub_encode_impls = Vec::new();
+/// Generates a compound item: an FSPEC followed by whichever sub-items it
+/// marks present.
+///
+/// Each sub-item is a complete item in its own right, so it is generated the
+/// same way; only the container differs.
+fn generate_compound_item(name: &Ident, sub_items: &[IRSubItem]) -> TokenStream {
+    let mut sub_code = Vec::new();
     let mut main_fields = Vec::new();
+    let mut field_names = Vec::new();
     let mut fspec_setup = Vec::new();
     let mut sub_decodes = Vec::new();
-    let mut field_names: Vec<&Ident> = Vec::new();
     let mut sub_encodes = Vec::new();
 
     for sub in sub_items {
-        let sub_name = &sub.struct_name;
-        let field_name = &sub.field_name;
-        let byte = sub.fspec_byte;
-        let bit = sub.fspec_bit;
+        let sub_name = sub_struct_name(name, sub.index);
+        let field_name = sub_field_name(sub.index);
+        let (byte, bit) = frn_to_fspec_position(sub.index);
 
-        sub_enum_defs.extend(sub.enums.iter().map(generate_enum));
-        sub_structs.push(generate_sub_item_struct(sub));
-        sub_decode_impls.push(generate_sub_item_decode(sub));
-        sub_encode_impls.push(generate_sub_item_encode(sub));
+        sub_code.push(generate_item(&sub_name, &sub.layout));
 
         main_fields.push(quote! { pub #field_name: Option<#sub_name> });
-        field_names.push(field_name);
 
         sub_decodes.push(quote! {
             let #field_name = if fspec.is_set(#byte, #bit) {
@@ -116,18 +65,17 @@ fn generate_compound_item(name: &Ident, sub_items: &[LoweredSubItem]) -> TokenSt
                 sub_data.encode(&mut writer)?;
             }
         });
+
+        field_names.push(field_name);
     }
 
     quote! {
-        #(#sub_enum_defs)*
-        #(#sub_structs)*
+        #(#sub_code)*
 
         #[derive(Debug, Clone, PartialEq)]
         pub struct #name {
             #(#main_fields),*
         }
-
-        #(#sub_decode_impls)*
 
         impl #name {
             pub fn decode<R: std::io::Read>(
@@ -138,11 +86,7 @@ fn generate_compound_item(name: &Ident, sub_items: &[LoweredSubItem]) -> TokenSt
                 #(#sub_decodes)*
                 Ok(Self { #(#field_names),* })
             }
-        }
 
-        #(#sub_encode_impls)*
-
-        impl #name {
             pub fn encode<W: std::io::Write>(
                 &self,
                 writer: &mut W,
@@ -162,47 +106,50 @@ fn generate_compound_item(name: &Ident, sub_items: &[LoweredSubItem]) -> TokenSt
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::transform::ir::IRElement;
     use quote::format_ident;
     use test_utils::assert_code_contains;
-    use crate::transform::lower_ir::*;
 
     #[test]
     fn test_generate_simple_item() {
-        let item = LoweredItem {
-            name: format_ident!("Item010"),
-            enums: vec![],
-            kind: LoweredItemKind::Simple {
-                fields: vec![
-                    FieldDescriptor {
-                        name: format_ident!("sac"),
-                        type_tokens: FieldType::Primitive(format_ident!("u8")),
-                    },
-                    FieldDescriptor {
-                        name: format_ident!("sic"),
-                        type_tokens: FieldType::Primitive(format_ident!("u8")),
-                    },
-                ],
-                decode_ops: vec![
-                    DecodeOp::ReadField { name: format_ident!("sac"), bits: 8, rust_type: format_ident!("u8") },
-                    DecodeOp::ReadField { name: format_ident!("sic"), bits: 8, rust_type: format_ident!("u8") },
-                ],
-                encode_ops: vec![
-                    EncodeOp::WriteField { name: format_ident!("sac"), bits: 8 },
-                    EncodeOp::WriteField { name: format_ident!("sic"), bits: 8 },
-                ],
-            },
+        let layout = IRLayout::Fixed {
+            bytes: 2,
+            elements: vec![
+                IRElement::Field { name: "sac".into(), bits: 8, string: None },
+                IRElement::Field { name: "sic".into(), bits: 8, string: None },
+            ],
         };
 
-        let result = generate_item(&item);
-        let code = result.to_string();
-        
-        let expected_fragments = vec![
+        let code = generate_item(&format_ident!("Item010"), &layout).to_string();
+        assert_code_contains(&code, &[
             "pub struct Item010",
             "pub sac : u8",
             "pub sic : u8",
             "impl Decode for Item010",
             "impl Encode for Item010",
-        ];
-        assert_code_contains(&code, &expected_fragments);
+        ]);
+    }
+
+    #[test]
+    fn compound_sub_items_are_generated_as_items_behind_an_fspec() {
+        let sub = |index: usize, field: &str| IRSubItem {
+            index,
+            layout: IRLayout::Fixed {
+                bytes: 1,
+                elements: vec![IRElement::Field { name: field.into(), bits: 8, string: None }],
+            },
+        };
+        let layout = IRLayout::Compound { sub_items: vec![sub(1, "a"), sub(3, "b")] };
+
+        let code = generate_item(&format_ident!("Item250"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "pub struct Item250Sub1",
+            "pub struct Item250Sub3",
+            "pub sub1 : Option < Item250Sub1 >",
+            "pub sub3 : Option < Item250Sub3 >",
+            // index 1 → FSPEC byte 0 bit 0, index 3 → byte 0 bit 2
+            "if fspec . is_set (0usize , 0u8)",
+            "if fspec . is_set (0usize , 2u8)",
+        ]);
     }
 }

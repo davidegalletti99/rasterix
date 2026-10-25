@@ -1,16 +1,15 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::transform::lower_ir::LoweredIR;
+use super::utils::record_struct_name;
 
 /// Generates the DataBlock struct and its Encode/Decode implementations.
 ///
 /// The DataBlock is a container of records for a single ASTERIX category.
 /// Wire format: `[CAT: 1 byte][LEN: 2 bytes big-endian][records...]`
 /// where LEN includes CAT + LEN + all record bytes.
-pub fn generate_datablock(lowered: &LoweredIR) -> TokenStream {
-    let record_name = &lowered.record.name;
-    let category_id = lowered.category_id;
+pub fn generate_datablock(category_id: u8) -> TokenStream {
+    let record_name = record_struct_name();
 
     quote! {
         /// ASTERIX Data Block — a container of records for this category.
@@ -125,31 +124,11 @@ pub fn generate_datablock(lowered: &LoweredIR) -> TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use quote::format_ident;
     use test_utils::assert_code_contains;
-    use crate::transform::lower_ir::{LoweredRecord, RecordEntry};
 
     #[test]
     fn test_generate_datablock() {
-        let lowered = LoweredIR {
-            category_id: 48,
-            module_name: format_ident!("cat048"),
-            record: LoweredRecord {
-                name: format_ident!("Record"),
-                entries: vec![
-                    RecordEntry {
-                        field_name: format_ident!("item010"),
-                        type_name: format_ident!("Item010"),
-                        fspec_byte: 0,
-                        fspec_bit: 0,
-                    },
-                ],
-            },
-            items: vec![],
-        };
-
-        let result = generate_datablock(&lowered);
-        let code = result.to_string();
+        let code = generate_datablock(48).to_string();
 
         let expected_fragments = [
             "pub struct DataBlock",

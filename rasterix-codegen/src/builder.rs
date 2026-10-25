@@ -23,9 +23,8 @@ pub const SUPPORTED_FORMATS: &[&str] = &["xml"];
 pub fn build_str(xml: &str) -> Result<String, CodegenError> {
     let category = parse_category(xml)?;
     let ir = to_ir(category)?;
-    let tokens = generate(&ir)?;
 
-    Ok(tokens.to_string())
+    Ok(generate(&ir).to_string())
 }
 
 /// Builds Rust code from a definition file, choosing the frontend by extension.

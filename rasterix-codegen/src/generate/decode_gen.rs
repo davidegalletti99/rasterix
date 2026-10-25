@@ -1,169 +1,174 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote};
+use quote::{format_ident, quote};
 
-use crate::transform::lower_ir::{DecodeOp, FieldDescriptor, LoweredPart, StringKind};
+use crate::transform::ir::{IRElement, IRLayout, IRPartGroup, StringKind};
+use super::utils::{
+    data_fields, element_struct_name, part_field_name, part_struct_name, rust_type_for_bits,
+    to_pascal_case, to_snake_case, unwrap_epb,
+};
 
 /// Returns the BitReader method used to read a string of the given kind.
 fn read_string_fn(kind: StringKind) -> Ident {
     match kind {
-        StringKind::Icao => quote::format_ident!("read_string"),
-        StringKind::Ascii => quote::format_ident!("read_ascii_string"),
+        StringKind::Icao => format_ident!("read_string"),
+        StringKind::Ascii => format_ident!("read_ascii_string"),
     }
 }
 
-/// Emits a single decode operation as a TokenStream.
-fn emit_decode_op(op: &DecodeOp) -> TokenStream {
-    match op {
-        DecodeOp::ReadField { name, bits, rust_type } => {
-            quote! {
-                let #name = reader.read_bits(#bits)? as #rust_type;
-            }
+/// Emits the read for one element, binding it to a local named after the
+/// struct field it fills.
+///
+/// An EPB-wrapped element reads its presence bit and then its value either
+/// way: the value's bits are on the wire whether or not it is valid, so the
+/// read cannot be skipped, only its result discarded.
+fn decode_element(element: &IRElement) -> TokenStream {
+    let (inner, epb) = unwrap_epb(element);
+
+    let (name, read) = match inner {
+        IRElement::Spare { bits } => {
+            debug_assert!(!epb, "EPB-wrapped spare is rejected by IRLayout::validate");
+            // Spare bits carry no data; consume them and bind nothing.
+            return quote! { reader.read_bits(#bits)?; };
         }
-        DecodeOp::ReadEnum { name, bits, enum_type } => {
-            quote! {
-                let #name = #enum_type::from(reader.read_bits(#bits)? as u8);
-            }
-        }
-        DecodeOp::ReadEpbField { name, bits, rust_type } => {
-            quote! {
-                let #name = {
-                    let valid = reader.read_bits(1)? != 0;
-                    if valid {
-                        Some(reader.read_bits(#bits)? as #rust_type)
-                    } else {
-                        reader.read_bits(#bits)?; // Skip the value
-                        None
-                    }
-                };
-            }
-        }
-        DecodeOp::ReadEpbEnum { name, bits, enum_type } => {
-            quote! {
-                let #name = {
-                    let valid = reader.read_bits(1)? != 0;
-                    if valid {
-                        Some(#enum_type::from(reader.read_bits(#bits)? as u8))
-                    } else {
-                        reader.read_bits(#bits)?; // Skip the value
-                        None
-                    }
-                };
-            }
-        }
-        DecodeOp::ReadString { name, byte_len, kind } => {
+        IRElement::Field { name, bits, string: Some(kind) } => {
             let read_fn = read_string_fn(*kind);
-            quote! {
-                let #name = reader.#read_fn(#byte_len)?;
-            }
+            let byte_len = bits / 8;
+            (to_snake_case(name), quote! { reader.#read_fn(#byte_len)? })
         }
-        DecodeOp::ReadEpbString { name, byte_len, kind } => {
-            let read_fn = read_string_fn(*kind);
-            quote! {
-                let #name = {
-                    let valid = reader.read_bits(1)? != 0;
-                    if valid {
-                        Some(reader.#read_fn(#byte_len)?)
-                    } else {
-                        reader.#read_fn(#byte_len)?; // Skip the value
-                        None
-                    }
-                };
-            }
+        IRElement::Field { name, bits, string: None } => {
+            let rust_type = rust_type_for_bits(*bits);
+            (to_snake_case(name), quote! { reader.read_bits(#bits)? as #rust_type })
         }
-        DecodeOp::SkipSpare { bits } => {
-            quote! {
-                reader.read_bits(#bits)?; // Skip spare bits
-            }
+        IRElement::Enum { name, bits, .. } => {
+            let enum_type = to_pascal_case(name);
+            (
+                to_snake_case(name),
+                quote! { #enum_type::from(reader.read_bits(#bits)? as u8) },
+            )
         }
-        DecodeOp::ReadLengthByte => {
-            quote! {
-                let _len = reader.read_bits(8)? as usize;
-                // Length includes itself, so actual data is len - 1 bytes
-            }
+        IRElement::EPB { .. } => unreachable!("nested EPB is rejected by IRLayout::validate"),
+    };
+
+    if epb {
+        quote! {
+            let #name = {
+                let valid = reader.read_bits(1)? != 0;
+                let value = #read;
+                if valid { Some(value) } else { None }
+            };
+        }
+    } else {
+        quote! { let #name = #read; }
+    }
+}
+
+/// Emits the reads for a run of elements, in wire order.
+fn decode_elements(elements: &[IRElement]) -> Vec<TokenStream> {
+    elements.iter().map(decode_element).collect()
+}
+
+/// The struct's field names, in declaration order, for `Ok(Self { .. })`.
+fn field_names(elements: &[IRElement]) -> Vec<Ident> {
+    data_fields(elements).into_iter().map(|field| field.name).collect()
+}
+
+/// Generates the decode implementation(s) for an item's layout.
+pub fn generate_decode(name: &Ident, layout: &IRLayout) -> TokenStream {
+    match layout {
+        IRLayout::Fixed { elements, .. } => simple_decode(name, elements, false),
+        IRLayout::Explicit { elements, .. } => simple_decode(name, elements, true),
+        IRLayout::Extended { part_groups, .. } => extended_decode(name, part_groups),
+        IRLayout::Repetitive { counter_bits, elements, .. } => {
+            repetitive_decode(name, *counter_bits, elements)
+        }
+        IRLayout::Compound { .. } => {
+            unreachable!("compound items are assembled by item_gen")
         }
     }
 }
 
-/// Generates the Decode impl for a Simple (Fixed/Explicit) item.
-pub fn generate_simple_decode(
-    name: &Ident,
-    decode_ops: &[DecodeOp],
-    fields: &[FieldDescriptor],
-) -> TokenStream {
-    let op_tokens: Vec<_> = decode_ops.iter().map(emit_decode_op).collect();
-    let field_names: Vec<_> = fields.iter().map(|f| &f.name).collect();
+/// Fixed and explicit items: read the elements straight through.
+fn simple_decode(name: &Ident, elements: &[IRElement], explicit: bool) -> TokenStream {
+    let reads = decode_elements(elements);
+    let fields = field_names(elements);
+
+    // An explicit item is prefixed by its own length. The elements already
+    // describe the payload, so the byte is read and dropped.
+    let length_byte = explicit.then(|| {
+        quote! {
+            // Length includes itself, so actual data is len - 1 bytes
+            let _len = reader.read_bits(8)? as usize;
+        }
+    });
 
     quote! {
         impl Decode for #name {
             fn decode<R: std::io::Read>(
                 reader: &mut BitReader<R>,
             ) -> Result<Self, DecodeError> {
-                #(#op_tokens)*
+                #length_byte
+                #(#reads)*
 
                 Ok(Self {
-                    #(#field_names),*
+                    #(#fields),*
                 })
             }
         }
     }
 }
 
-/// Generates decode implementations for an Extended item.
-pub fn generate_extended_decode(
-    name: &Ident,
-    parts: &[LoweredPart],
-) -> TokenStream {
-    let mut part_impl_tokens = Vec::new();
-    let mut main_decode_body = Vec::new();
-    let mut field_names = Vec::new();
+/// Extended items: one struct per part, chained by FX bits.
+fn extended_decode(name: &Ident, part_groups: &[IRPartGroup]) -> TokenStream {
+    let mut part_impls = Vec::new();
+    let mut decode_body = Vec::new();
+    let mut item_fields = Vec::new();
 
-    let number_of_parts = parts.len();
-    for (i, part) in parts.iter().enumerate() {
-        let part_name = &part.struct_name;
-        let field_name = &part.field_name;
-        field_names.push(field_name);
+    let number_of_parts = part_groups.len();
+    for (i, group) in part_groups.iter().enumerate() {
+        let part_name = part_struct_name(name, group.index);
+        let field_name = part_field_name(group.index);
 
-        let element_decodes: Vec<_> = part.decode_ops.iter().map(emit_decode_op).collect();
-        let element_names: Vec<_> = part.fields.iter().map(|f| &f.name).collect();
+        let reads = decode_elements(&group.elements);
+        let part_fields = field_names(&group.elements);
 
-        part_impl_tokens.push(quote! {
+        part_impls.push(quote! {
             impl #part_name {
                 pub fn decode<R: std::io::Read>(
                     reader: &mut BitReader<R>,
                 ) -> Result<Self, DecodeError> {
-                    #(#element_decodes)*
-                    Ok(Self { #(#element_names),* })
+                    #(#reads)*
+                    Ok(Self { #(#part_fields),* })
                 }
             }
         });
 
         if i == 0 {
-            main_decode_body.push(quote! {
+            decode_body.push(quote! {
                 let #field_name = #part_name::decode(reader)?;
             });
 
             if i != number_of_parts - 1 {
                 if number_of_parts <= 2 {
                     // no need for mutable fx if there are only 2 parts
-                    main_decode_body.push(quote! {
+                    decode_body.push(quote! {
                         let fx = reader.read_bits(1)? != 0;
                     });
                 } else {
                     // For more than 2 parts, we need to keep track of fx for
                     // subsequent parts
-                    main_decode_body.push(quote! {
+                    decode_body.push(quote! {
                         let mut fx = reader.read_bits(1)? != 0;
                     });
                 }
             } else {
                 // Single-part item: the encoder still terminates it with an
                 // FX bit, so it has to be consumed here.
-                main_decode_body.push(quote! {
+                decode_body.push(quote! {
                     reader.read_bits(1)?;
                 });
             }
         } else if i != number_of_parts - 1 {
-            main_decode_body.push(quote! {
+            decode_body.push(quote! {
                 let #field_name = if fx {
                     let part = #part_name::decode(reader)?;
                     fx = reader.read_bits(1)? != 0;
@@ -173,7 +178,7 @@ pub fn generate_extended_decode(
                 };
             });
         } else {
-            main_decode_body.push(quote! {
+            decode_body.push(quote! {
                 let #field_name = if fx {
                     let part = #part_name::decode(reader)?;
                     // Last part carries a terminating FX bit on the wire.
@@ -184,38 +189,39 @@ pub fn generate_extended_decode(
                 };
             });
         }
+
+        item_fields.push(part_field_name(group.index));
     }
 
     quote! {
-        #(#part_impl_tokens)*
+        #(#part_impls)*
 
         impl Decode for #name {
             fn decode<R: std::io::Read>(
                 reader: &mut BitReader<R>,
             ) -> Result<Self, DecodeError> {
-                #(#main_decode_body)*
+                #(#decode_body)*
 
                 Ok(Self {
-                    #(#field_names),*
+                    #(#item_fields),*
                 })
             }
         }
     }
 }
 
-/// Generates decode implementation for a Repetitive item.
+/// Repetitive items.
 ///
-/// Wire format with counter: [counter: counter_bits bits][element 0]...[element N-1]
-/// Wire format FX-terminated: [element][FX]... with FX = 1 while more follow
-pub fn generate_repetitive_decode(
+/// Wire format with counter: `[counter: counter_bits bits][element 0]...[element N-1]`
+/// Wire format FX-terminated: `[element][FX]...` with FX = 1 while more follow
+fn repetitive_decode(
     name: &Ident,
     counter_bits: Option<usize>,
-    element_type_name: &Ident,
-    decode_ops: &[DecodeOp],
-    fields: &[FieldDescriptor],
+    elements: &[IRElement],
 ) -> TokenStream {
-    let element_decodes: Vec<_> = decode_ops.iter().map(emit_decode_op).collect();
-    let field_names: Vec<_> = fields.iter().map(|f| &f.name).collect();
+    let element_name = element_struct_name(name);
+    let reads = decode_elements(elements);
+    let fields = field_names(elements);
 
     let decode_body = match counter_bits {
         Some(counter_bits) => quote! {
@@ -223,7 +229,7 @@ pub fn generate_repetitive_decode(
             let count = reader.read_bits(#counter_bits)? as usize;
             let mut items = Vec::with_capacity(count);
             for _ in 0..count {
-                items.push(#element_type_name::decode(reader)?);
+                items.push(#element_name::decode(reader)?);
             }
         },
         None => quote! {
@@ -231,7 +237,7 @@ pub fn generate_repetitive_decode(
             // 1 = another repetition follows
             let mut items = Vec::new();
             loop {
-                items.push(#element_type_name::decode(reader)?);
+                items.push(#element_name::decode(reader)?);
                 if reader.read_bits(1)? == 0 {
                     break;
                 }
@@ -240,14 +246,14 @@ pub fn generate_repetitive_decode(
     };
 
     quote! {
-        impl #element_type_name {
+        impl #element_name {
             fn decode<R: std::io::Read>(
                 reader: &mut BitReader<R>,
             ) -> Result<Self, DecodeError> {
-                #(#element_decodes)*
+                #(#reads)*
 
                 Ok(Self {
-                    #(#field_names),*
+                    #(#fields),*
                 })
             }
         }
@@ -264,3 +270,68 @@ pub fn generate_repetitive_decode(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_utils::assert_code_contains;
+
+    #[test]
+    fn spare_bits_are_consumed_without_a_field() {
+        let elements = vec![
+            IRElement::Spare { bits: 3 },
+            IRElement::Field { name: "code".into(), bits: 5, string: None },
+        ];
+        let layout = IRLayout::Fixed { bytes: 1, elements };
+
+        let code = generate_decode(&format_ident!("Item010"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "reader . read_bits (3usize) ? ;",
+            "let code = reader . read_bits (5usize) ? as u8 ;",
+        ]);
+    }
+
+    #[test]
+    fn epb_reads_its_value_whether_or_not_it_is_valid() {
+        // The value's bits are on the wire either way; skipping the read would
+        // leave the reader out of phase.
+        let elements = vec![IRElement::EPB {
+            content: Box::new(IRElement::Field { name: "alt".into(), bits: 15, string: None }),
+        }];
+        let layout = IRLayout::Fixed { bytes: 2, elements };
+
+        let code = generate_decode(&format_ident!("Item010"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "let valid = reader . read_bits (1) ? != 0 ;",
+            "let value = reader . read_bits (15usize) ? as u16 ;",
+            "if valid { Some (value) } else { None }",
+        ]);
+    }
+
+    #[test]
+    fn explicit_item_reads_its_length_byte() {
+        let layout = IRLayout::Explicit {
+            bytes: 1,
+            elements: vec![IRElement::Field { name: "code".into(), bits: 8, string: None }],
+        };
+
+        let code = generate_decode(&format_ident!("Item010"), &layout).to_string();
+        assert!(code.contains("let _len = reader . read_bits (8) ? as usize ;"), "{code}");
+    }
+
+    #[test]
+    fn fx_terminated_repetitive_loops_until_the_bit_clears() {
+        let layout = IRLayout::Repetitive {
+            bytes: 1,
+            counter_bits: None,
+            elements: vec![IRElement::Field { name: "code".into(), bits: 7, string: None }],
+        };
+
+        let code = generate_decode(&format_ident!("Item020"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "impl Item020Element",
+            "loop",
+            "if reader . read_bits (1) ? == 0 { break",
+        ]);
+        assert!(!code.contains("with_capacity"), "no counter means no known count: {code}");
+    }
+}

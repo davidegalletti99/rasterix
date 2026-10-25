@@ -1,88 +1,119 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
 
-use crate::transform::lower_ir::{EncodeOp, LoweredPart, StringKind};
+use crate::transform::ir::{IRElement, IRLayout, IRPartGroup, StringKind};
+use super::utils::{
+    element_struct_name, part_field_name, part_struct_name, to_snake_case, unwrap_epb,
+};
 
 /// Returns the BitWriter method used to write a string of the given kind.
 fn write_string_fn(kind: StringKind) -> Ident {
     match kind {
-        StringKind::Icao => quote::format_ident!("write_string"),
-        StringKind::Ascii => quote::format_ident!("write_ascii_string"),
+        StringKind::Icao => format_ident!("write_string"),
+        StringKind::Ascii => format_ident!("write_ascii_string"),
     }
 }
 
-/// Emits a single encode operation as a TokenStream.
-fn emit_encode_op(op: &EncodeOp) -> TokenStream {
-    match op {
-        EncodeOp::WriteField { name, bits } => {
-            quote! {
-                writer.write_bits(self.#name as u64, #bits)?;
-            }
+/// Emits the write for one element.
+///
+/// An EPB-wrapped element writes its presence bit followed by its value, or a
+/// cleared bit and a zeroed value — the field occupies the same bits either
+/// way.
+fn encode_element(element: &IRElement) -> TokenStream {
+    let (inner, epb) = unwrap_epb(element);
+
+    match inner {
+        IRElement::Spare { bits } => {
+            debug_assert!(!epb, "EPB-wrapped spare is rejected by IRLayout::validate");
+            quote! { writer.write_bits(0, #bits)?; } // Write spare bits as zero
         }
-        EncodeOp::WriteEnum { name, bits } => {
-            quote! {
-                writer.write_bits(u8::from(self.#name) as u64, #bits)?;
-            }
-        }
-        EncodeOp::WriteEpbField { name, bits } => {
-            quote! {
-                if let Some(value) = self.#name {
-                    writer.write_bits(1, 1)?; // Valid bit
-                    writer.write_bits(value as u64, #bits)?;
-                } else {
-                    writer.write_bits(0, 1)?; // Invalid bit
-                    writer.write_bits(0, #bits)?; // Zero value
-                }
-            }
-        }
-        EncodeOp::WriteEpbEnum { name, bits } => {
-            quote! {
-                if let Some(value) = self.#name {
-                    writer.write_bits(1, 1)?; // Valid bit
-                    writer.write_bits(u8::from(value) as u64, #bits)?;
-                } else {
-                    writer.write_bits(0, 1)?; // Invalid bit
-                    writer.write_bits(0, #bits)?; // Zero value
-                }
-            }
-        }
-        EncodeOp::WriteString { name, byte_len, kind } => {
+
+        IRElement::Field { name, bits, string: Some(kind) } => {
             let write_fn = write_string_fn(*kind);
-            quote! {
-                writer.#write_fn(&self.#name, #byte_len)?;
-            }
-        }
-        EncodeOp::WriteEpbString { name, byte_len, kind } => {
-            let write_fn = write_string_fn(*kind);
-            quote! {
-                if let Some(ref value) = self.#name {
-                    writer.write_bits(1, 1)?; // Valid bit
-                    writer.#write_fn(value, #byte_len)?;
-                } else {
-                    writer.write_bits(0, 1)?; // Invalid bit
-                    writer.#write_fn("", #byte_len)?; // Write empty padded string
+            let byte_len = bits / 8;
+            let name = to_snake_case(name);
+            if epb {
+                quote! {
+                    if let Some(ref value) = self.#name {
+                        writer.write_bits(1, 1)?; // Valid bit
+                        writer.#write_fn(value, #byte_len)?;
+                    } else {
+                        writer.write_bits(0, 1)?; // Invalid bit
+                        writer.#write_fn("", #byte_len)?; // Write empty padded string
+                    }
                 }
+            } else {
+                quote! { writer.#write_fn(&self.#name, #byte_len)?; }
             }
         }
-        EncodeOp::WriteSpare { bits } => {
-            quote! {
-                writer.write_bits(0, #bits)?; // Write spare bits as zero
+
+        IRElement::Field { name, bits, string: None } => {
+            let name = to_snake_case(name);
+            if epb {
+                quote! {
+                    if let Some(value) = self.#name {
+                        writer.write_bits(1, 1)?; // Valid bit
+                        writer.write_bits(value as u64, #bits)?;
+                    } else {
+                        writer.write_bits(0, 1)?; // Invalid bit
+                        writer.write_bits(0, #bits)?; // Zero value
+                    }
+                }
+            } else {
+                quote! { writer.write_bits(self.#name as u64, #bits)?; }
             }
         }
-        EncodeOp::WriteLengthByte { total_bytes } => {
-            quote! {
-                writer.write_bits(#total_bytes as u64, 8)?;
+
+        IRElement::Enum { name, bits, .. } => {
+            let name = to_snake_case(name);
+            if epb {
+                quote! {
+                    if let Some(value) = self.#name {
+                        writer.write_bits(1, 1)?; // Valid bit
+                        writer.write_bits(u8::from(value) as u64, #bits)?;
+                    } else {
+                        writer.write_bits(0, 1)?; // Invalid bit
+                        writer.write_bits(0, #bits)?; // Zero value
+                    }
+                }
+            } else {
+                quote! { writer.write_bits(u8::from(self.#name) as u64, #bits)?; }
             }
+        }
+
+        IRElement::EPB { .. } => unreachable!("nested EPB is rejected by IRLayout::validate"),
+    }
+}
+
+/// Emits the writes for a run of elements, in wire order.
+fn encode_elements(elements: &[IRElement]) -> Vec<TokenStream> {
+    elements.iter().map(encode_element).collect()
+}
+
+/// Generates the encode implementation(s) for an item's layout.
+pub fn generate_encode(name: &Ident, layout: &IRLayout) -> TokenStream {
+    match layout {
+        IRLayout::Fixed { elements, .. } => simple_encode(name, elements, None),
+        IRLayout::Explicit { bytes, elements } => simple_encode(name, elements, Some(*bytes + 1)),
+        IRLayout::Extended { part_groups, .. } => extended_encode(name, part_groups),
+        IRLayout::Repetitive { counter_bits, elements, .. } => {
+            repetitive_encode(name, *counter_bits, elements)
+        }
+        IRLayout::Compound { .. } => {
+            unreachable!("compound items are assembled by item_gen")
         }
     }
 }
 
-/// Generates the Encode impl for a Simple (Fixed/Explicit) item.
-pub fn generate_simple_encode(
-    name: &Ident,
-    encode_ops: &[EncodeOp],
-) -> TokenStream {
-    let op_tokens: Vec<_> = encode_ops.iter().map(emit_encode_op).collect();
+/// Fixed and explicit items: write the elements straight through.
+///
+/// `total_bytes` is `Some` for an explicit item, whose payload is prefixed by
+/// its own length counting the length byte itself.
+fn simple_encode(name: &Ident, elements: &[IRElement], total_bytes: Option<usize>) -> TokenStream {
+    let writes = encode_elements(elements);
+    let length_byte = total_bytes.map(|total| {
+        quote! { writer.write_bits(#total as u64, 8)?; }
+    });
 
     quote! {
         impl Encode for #name {
@@ -90,97 +121,91 @@ pub fn generate_simple_encode(
                 &self,
                 writer: &mut BitWriter<W>,
             ) -> Result<(), DecodeError> {
-                #(#op_tokens)*
+                #length_byte
+                #(#writes)*
                 Ok(())
             }
         }
     }
 }
 
-/// Generates encode implementations for an Extended item.
-pub fn generate_extended_encode(
-    name: &Ident,
-    parts: &[LoweredPart],
-) -> TokenStream {
-    let mut part_impl_tokens = Vec::new();
-    let mut main_encode_body = Vec::new();
-    let total_parts = parts.len();
+/// Extended items: each part followed by an FX bit saying whether another
+/// part follows.
+fn extended_encode(name: &Ident, part_groups: &[IRPartGroup]) -> TokenStream {
+    let mut part_impls = Vec::new();
+    let mut encode_body = Vec::new();
+    let total_parts = part_groups.len();
 
-    for (i, part) in parts.iter().enumerate() {
-        let part_name = &part.struct_name;
-        let field_name = &part.field_name;
+    for (i, group) in part_groups.iter().enumerate() {
+        let part_name = part_struct_name(name, group.index);
+        let field_name = part_field_name(group.index);
+        let writes = encode_elements(&group.elements);
 
-        let element_encodes: Vec<_> = part.encode_ops.iter().map(emit_encode_op).collect();
-
-        part_impl_tokens.push(quote! {
+        part_impls.push(quote! {
             impl #part_name {
                 pub fn encode<W: std::io::Write>(
                     &self,
                     writer: &mut BitWriter<W>,
                 ) -> Result<(), DecodeError> {
-                    #(#element_encodes)*
+                    #(#writes)*
                     Ok(())
                 }
             }
         });
 
+        // The FX bit after a part reports whether the next one is present, so
+        // it is read off the following field — except for the last part, which
+        // always terminates the chain.
+        let next_present = (i + 1 < total_parts).then(|| {
+            let next_field = part_field_name(part_groups[i + 1].index);
+            quote! { self.#next_field.is_some() as u64 }
+        });
+        let fx_bit = match &next_present {
+            Some(next) => quote! { writer.write_bits(#next, 1)?; }, // FX bit
+            None => quote! { writer.write_bits(0, 1)?; }, // FX bit = 0, no more extension
+        };
+
         if i == 0 {
-            if total_parts > 1 {
-                let next_field = &parts[i + 1].field_name;
-                main_encode_body.push(quote! {
-                    self.#field_name.encode(writer)?;
-                    writer.write_bits(self.#next_field.is_some() as u64, 1)?; // FX bit
-                });
-            } else {
-                main_encode_body.push(quote! {
-                    self.#field_name.encode(writer)?;
-                    writer.write_bits(0, 1)?; // FX bit = 0, no extension
-                });
-            }
-        } else if i < total_parts - 1 {
-            let next_field = &parts[i + 1].field_name;
-            main_encode_body.push(quote! {
-                if let Some(ref part_data) = self.#field_name {
-                    part_data.encode(writer)?;
-                    writer.write_bits(self.#next_field.is_some() as u64, 1)?; // FX bit
-                }
+            encode_body.push(quote! {
+                self.#field_name.encode(writer)?;
+                #fx_bit
             });
         } else {
-            main_encode_body.push(quote! {
+            encode_body.push(quote! {
                 if let Some(ref part_data) = self.#field_name {
                     part_data.encode(writer)?;
-                    writer.write_bits(0, 1)?; // FX bit = 0, no more extension
+                    #fx_bit
                 }
             });
         }
     }
 
     quote! {
-        #(#part_impl_tokens)*
+        #(#part_impls)*
 
         impl Encode for #name {
             fn encode<W: std::io::Write>(
                 &self,
                 writer: &mut BitWriter<W>,
             ) -> Result<(), DecodeError> {
-                #(#main_encode_body)*
+                #(#encode_body)*
                 Ok(())
             }
         }
     }
 }
 
-/// Generates encode implementation for a Repetitive item.
+/// Repetitive items.
 ///
-/// Wire format with counter: [counter: counter_bits bits][element 0]...[element N-1]
-/// Wire format FX-terminated: [element][FX]... with FX = 1 while more follow
-pub fn generate_repetitive_encode(
+/// Wire format with counter: `[counter: counter_bits bits][element 0]...[element N-1]`
+/// Wire format FX-terminated: `[element][FX]...` with FX = 1 while more follow
+fn repetitive_encode(
     name: &Ident,
     counter_bits: Option<usize>,
-    element_type_name: &Ident,
-    encode_ops: &[EncodeOp],
+    elements: &[IRElement],
 ) -> TokenStream {
-    let element_encodes: Vec<_> = encode_ops.iter().map(emit_encode_op).collect();
+    let element_name = element_struct_name(name);
+    let writes = encode_elements(elements);
 
     let encode_body = match counter_bits {
         Some(counter_bits) => quote! {
@@ -207,12 +232,12 @@ pub fn generate_repetitive_encode(
     };
 
     quote! {
-        impl #element_type_name {
+        impl #element_name {
             fn encode<W: std::io::Write>(
                 &self,
                 writer: &mut BitWriter<W>,
             ) -> Result<(), DecodeError> {
-                #(#element_encodes)*
+                #(#writes)*
                 Ok(())
             }
         }
@@ -229,3 +254,73 @@ pub fn generate_repetitive_encode(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_utils::assert_code_contains;
+
+    #[test]
+    fn spare_bits_are_written_as_zero() {
+        let layout = IRLayout::Fixed {
+            bytes: 1,
+            elements: vec![
+                IRElement::Spare { bits: 3 },
+                IRElement::Field { name: "code".into(), bits: 5, string: None },
+            ],
+        };
+
+        let code = generate_encode(&format_ident!("Item010"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "writer . write_bits (0 , 3usize) ? ;",
+            "writer . write_bits (self . code as u64 , 5usize) ? ;",
+        ]);
+    }
+
+    #[test]
+    fn epb_writes_the_value_slot_even_when_absent() {
+        // Decode always reads those bits, so encode has to emit them.
+        let layout = IRLayout::Fixed {
+            bytes: 2,
+            elements: vec![IRElement::EPB {
+                content: Box::new(IRElement::Field { name: "alt".into(), bits: 15, string: None }),
+            }],
+        };
+
+        let code = generate_encode(&format_ident!("Item010"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "if let Some (value) = self . alt",
+            "writer . write_bits (1 , 1) ? ;",
+            "writer . write_bits (0 , 1) ? ;",
+            "writer . write_bits (0 , 15usize) ? ;",
+        ]);
+    }
+
+    #[test]
+    fn explicit_item_writes_a_length_that_counts_itself() {
+        let layout = IRLayout::Explicit {
+            bytes: 3,
+            elements: vec![IRElement::Field { name: "code".into(), bits: 24, string: None }],
+        };
+
+        let code = generate_encode(&format_ident!("Item010"), &layout).to_string();
+        assert!(code.contains("writer . write_bits (4usize as u64 , 8) ? ;"), "{code}");
+    }
+
+    #[test]
+    fn extended_fx_bit_follows_the_next_part() {
+        let part = |index: usize, name: &str| IRPartGroup {
+            index,
+            elements: vec![IRElement::Field { name: name.into(), bits: 7, string: None }],
+        };
+        let layout = IRLayout::Extended {
+            bytes: 2,
+            part_groups: vec![part(0, "a"), part(1, "b")],
+        };
+
+        let code = generate_encode(&format_ident!("Item030"), &layout).to_string();
+        assert_code_contains(&code, &[
+            "writer . write_bits (self . part1 . is_some () as u64 , 1) ? ;",
+            "if let Some (ref part_data) = self . part1",
+        ]);
+    }
+}
