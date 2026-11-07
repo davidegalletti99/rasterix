@@ -2,7 +2,9 @@
 //! data block re-encodes to the bytes it was read from.
 //!
 //! The capture lives at `testdata/recordings/cat048.pcap`: classic pcap (not
-//! pcapng), UDP over Ethernet/IPv4. Until it is committed, the recording test
+//! pcapng), UDP over Ethernet/IPv4. Non-UDP frames are skipped, but every UDP
+//! datagram is read as ASTERIX, so export only the ASTERIX port (e.g. display
+//! filter `udp.port == 8600`). Until it is committed, the recording test
 //! only reports where to put it.
 
 include!(concat!(env!("OUT_DIR"), "/generated/mod.rs"));
@@ -12,9 +14,10 @@ use std::io::Cursor;
 
 const CAPTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../testdata/recordings/cat048.pcap");
 
-/// The UDP payloads of a classic little-endian pcap capture of Ethernet/IPv4
-/// frames. Anything else is reported, with the packet number, rather than
-/// misread.
+/// The UDP payloads of a classic little-endian pcap capture of Ethernet
+/// frames. Frames that are not IPv4/UDP (ARP, IPv6, TCP...) are skipped; a
+/// wrong file format, link type or a truncated frame is reported, with the
+/// packet number, rather than misread.
 fn udp_payloads(pcap: &[u8]) -> Result<Vec<&[u8]>, String> {
     let bytes = |at: usize, n: usize, what: &str| {
         pcap.get(at..at + n).ok_or_else(|| format!("truncated capture: {what} at byte {at}"))
@@ -33,30 +36,35 @@ fn udp_payloads(pcap: &[u8]) -> Result<Vec<&[u8]>, String> {
 
     let mut payloads = Vec::new();
     let mut at = 24;
+    let mut packet = 0;
     while at < pcap.len() {
-        let packet = payloads.len() + 1;
+        packet += 1;
         let incl_len = u32_le(bytes(at + 8, 4, "record header")?) as usize;
         let frame = bytes(at + 16, incl_len, "frame")?;
         at += 16 + incl_len;
 
         let ethertype = frame.get(12..14).ok_or(format!("packet {packet}: frame too short"))?;
         if ethertype != [0x08, 0x00] {
-            return Err(format!("packet {packet}: ethertype {ethertype:02x?} is not IPv4"));
+            continue;
         }
         let ip = &frame[14..];
         let header_len = (*ip.first().ok_or(format!("packet {packet}: no IPv4 header"))? & 0x0f) as usize * 4;
         if ip.get(9) != Some(&17) {
-            return Err(format!("packet {packet}: not UDP"));
+            continue;
         }
         let udp = ip.get(header_len..).ok_or(format!("packet {packet}: truncated IPv4 header"))?;
-        payloads.push(udp.get(8..).ok_or(format!("packet {packet}: truncated UDP header"))?);
+        // The UDP length bounds the payload: short frames carry Ethernet padding.
+        let udp_len = udp.get(4..6).map(|b| u16::from_be_bytes([b[0], b[1]]) as usize);
+        let payload = udp_len
+            .and_then(|len| udp.get(8..len))
+            .ok_or(format!("packet {packet}: truncated UDP datagram"))?;
+        payloads.push(payload);
     }
     Ok(payloads)
 }
 
-/// One packet: classic pcap global header (little-endian, µs timestamps),
-/// one record header, then Ethernet + IPv4 + UDP headers around `payload`.
-fn one_packet_pcap(link_type: u32, payload: &[u8]) -> Vec<u8> {
+/// An Ethernet frame carrying `payload` in IPv4/UDP.
+fn udp_frame(payload: &[u8]) -> Vec<u8> {
     let mut frame = vec![0u8; 12];
     frame.extend_from_slice(&[0x08, 0x00]); // ethertype IPv4
     let mut ip = vec![0x45, 0, 0, 0, 0, 0, 0, 0, 64, 17, 0, 0, 10, 0, 0, 1, 10, 0, 0, 2];
@@ -68,14 +76,45 @@ fn one_packet_pcap(link_type: u32, payload: &[u8]) -> Vec<u8> {
     frame.extend_from_slice(&udp_len.to_be_bytes());
     frame.extend_from_slice(&[0, 0]);
     frame.extend_from_slice(payload);
+    frame
+}
 
+/// A classic pcap capture (little-endian, µs timestamps) of `frames`.
+fn pcap_of(link_type: u32, frames: &[Vec<u8>]) -> Vec<u8> {
     let mut pcap = vec![0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0, 0];
     pcap.extend_from_slice(&link_type.to_le_bytes());
-    pcap.extend_from_slice(&[0; 8]); // timestamp
-    pcap.extend_from_slice(&(frame.len() as u32).to_le_bytes());
-    pcap.extend_from_slice(&(frame.len() as u32).to_le_bytes());
-    pcap.extend_from_slice(&frame);
+    for frame in frames {
+        pcap.extend_from_slice(&[0; 8]); // timestamp
+        pcap.extend_from_slice(&(frame.len() as u32).to_le_bytes());
+        pcap.extend_from_slice(&(frame.len() as u32).to_le_bytes());
+        pcap.extend_from_slice(frame);
+    }
     pcap
+}
+
+fn one_packet_pcap(link_type: u32, payload: &[u8]) -> Vec<u8> {
+    pcap_of(link_type, &[udp_frame(payload)])
+}
+
+#[test]
+fn padded_frame_payload_stops_at_the_udp_length() {
+    // Frames under 60 bytes are zero-padded on the wire, and captures keep it.
+    let mut frame = udp_frame(&[34, 0, 4, 0]);
+    frame.resize(60, 0);
+
+    assert_eq!(udp_payloads(&pcap_of(1, &[frame])).unwrap(), vec![&[34u8, 0, 4, 0][..]]);
+}
+
+#[test]
+fn non_ipv4_udp_frames_are_skipped() {
+    let mut arp = vec![0u8; 12];
+    arp.extend_from_slice(&[0x08, 0x06]);
+    arp.resize(60, 0);
+    let mut tcp = udp_frame(&[1, 2, 3]);
+    tcp[14 + 9] = 6; // IPv4 protocol TCP
+
+    let pcap = pcap_of(1, &[arp, tcp, udp_frame(&[48, 0, 3])]);
+    assert_eq!(udp_payloads(&pcap).unwrap(), vec![&[48u8, 0, 3][..]]);
 }
 
 #[test]
