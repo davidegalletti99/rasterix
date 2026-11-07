@@ -12,6 +12,12 @@ pub fn generate_structs(name: &Ident, layout: &IRLayout) -> TokenStream {
         IRLayout::Fixed { elements, .. } | IRLayout::Explicit { elements, .. } => {
             generate_struct(name, elements)
         }
+        IRLayout::OpaqueExplicit => quote! {
+            #[derive(Debug, Clone, PartialEq)]
+            pub struct #name {
+                pub data: Vec<u8>,
+            }
+        },
         IRLayout::Extended { part_groups, .. } => extended_structs(name, part_groups),
         IRLayout::Repetitive { elements, .. } => repetitive_structs(name, elements),
         IRLayout::Compound { .. } => {

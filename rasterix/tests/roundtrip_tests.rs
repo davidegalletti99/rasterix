@@ -960,3 +960,33 @@ fn roundtrip_signed_field() {
         assert_eq!(original, Item040::decode(&mut reader).unwrap());
     }
 }
+
+#[test]
+fn roundtrip_opaque_explicit() {
+    use ast_alignment::cat099::*;
+
+    for data in [vec![], vec![0xAB], (0..=253).collect::<Vec<u8>>()] {
+        let original = Item050 { data: data.clone() };
+        let mut buffer = Vec::new();
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+            original.encode(&mut writer).unwrap();
+            writer.flush().unwrap();
+        }
+        // The length byte counts itself.
+        assert_eq!(buffer[0] as usize, data.len() + 1);
+        assert_eq!(&buffer[1..], &data[..]);
+
+        let mut reader = BitReader::new(Cursor::new(&buffer));
+        assert_eq!(original, Item050::decode(&mut reader).unwrap());
+    }
+
+    // 254 payload bytes is the most one length byte can count.
+    let too_long = Item050 { data: vec![0; 255] };
+    let mut buffer = Vec::new();
+    assert!(too_long.encode(&mut BitWriter::new(&mut buffer)).is_err());
+
+    // A zero length cannot count its own byte.
+    let mut reader = BitReader::new(Cursor::new(&[0u8][..]));
+    assert!(Item050::decode(&mut reader).is_err());
+}

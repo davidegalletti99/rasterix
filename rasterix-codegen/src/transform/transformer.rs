@@ -73,8 +73,16 @@ fn fixed_layout(simple: SimpleItem) -> Result<IRLayout, CodegenError> {
     Ok(IRLayout::Fixed { bytes: simple.bytes, elements: to_ir_elements(simple.elements)? })
 }
 
-fn explicit_layout(simple: SimpleItem) -> Result<IRLayout, CodegenError> {
-    Ok(IRLayout::Explicit { bytes: simple.bytes, elements: to_ir_elements(simple.elements)? })
+fn explicit_layout(explicit: ExplicitItem) -> Result<IRLayout, CodegenError> {
+    // Elements without `bytes` fall through to Explicit with 0 bytes, which
+    // validation rejects as a bit count mismatch.
+    if explicit.bytes.is_none() && explicit.elements.is_empty() {
+        return Ok(IRLayout::OpaqueExplicit);
+    }
+    Ok(IRLayout::Explicit {
+        bytes: explicit.bytes.unwrap_or(0),
+        elements: to_ir_elements(explicit.elements)?,
+    })
 }
 
 fn extended_layout(ext: ExtendedItem) -> Result<IRLayout, CodegenError> {

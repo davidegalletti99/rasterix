@@ -180,7 +180,15 @@ Explicit-length data structure where the first byte contains the length indicato
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
-| `bytes` | Yes | Minimum/base length in bytes |
+| `bytes` | No | Payload length in bytes, excluding the length byte |
+
+With `bytes` and elements, the payload has a fixed structure. With neither, the payload is opaque (asterix-specs' `explicit`, e.g. RE and SP fields): the item becomes `{ data: Vec<u8> }` and its length is read from the length byte at runtime (at most 254 payload bytes).
+
+```xml
+<item id="RE" frn="28">
+    <explicit/>
+</item>
+```
 
 **Example: Special Purpose Field**
 ```xml
@@ -449,7 +457,7 @@ Each XML element maps to a specific Rust type:
 | `<extended>` | Struct with `partN` and `Option<PartN>` fields |
 | `<compound>` | Struct with `Option<SubN>` fields |
 | `<repetitive>` | Struct with `items: Vec<Element>` |
-| `<explicit>` | Struct with fields |
+| `<explicit>` | Struct with fields, or `{ data: Vec<u8> }` when opaque |
 | `<field>` | `u8`, `u16`, `u32`, or `u64` (based on bits) |
 | `<enum>` | `enum Name { Variant = N, Unknown(uN) }` |
 | `<epb>` | `Option<T>` wrapping the inner field |

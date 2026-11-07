@@ -232,7 +232,8 @@ fn transform_compound_with_nested_layouts() {
                     IRLayout::Fixed { .. } |
                     IRLayout::Extended { .. } |
                     IRLayout::Repetitive { .. } |
-                    IRLayout::Explicit { .. } => {
+                    IRLayout::Explicit { .. } |
+                    IRLayout::OpaqueExplicit => {
                         // Valid nested layout types
                     }
                     IRLayout::Compound { .. } => {

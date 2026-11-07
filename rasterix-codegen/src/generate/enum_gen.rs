@@ -24,7 +24,7 @@ pub fn collect_enums(layout: &IRLayout) -> Vec<EnumDef<'_>> {
         IRLayout::Extended { part_groups, .. } => {
             part_groups.iter().map(|g| g.elements.as_slice()).collect()
         }
-        IRLayout::Compound { .. } => vec![],
+        IRLayout::OpaqueExplicit | IRLayout::Compound { .. } => vec![],
     };
 
     element_groups

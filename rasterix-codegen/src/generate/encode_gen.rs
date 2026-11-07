@@ -97,6 +97,7 @@ pub fn generate_encode(name: &Ident, layout: &IRLayout) -> TokenStream {
     match layout {
         IRLayout::Fixed { elements, .. } => simple_encode(name, elements, None),
         IRLayout::Explicit { bytes, elements } => simple_encode(name, elements, Some(*bytes + 1)),
+        IRLayout::OpaqueExplicit => opaque_explicit_encode(name),
         IRLayout::Extended { part_groups, .. } => extended_encode(name, part_groups),
         IRLayout::Repetitive { counter_bits, elements, .. } => {
             repetitive_encode(name, *counter_bits, elements)
@@ -125,6 +126,26 @@ fn simple_encode(name: &Ident, elements: &[IRElement], total_bytes: Option<usize
             ) -> Result<(), DecodeError> {
                 #length_byte
                 #(#writes)*
+                Ok(())
+            }
+        }
+    }
+}
+
+/// Opaque explicit items: the payload prefixed by a length counting itself.
+fn opaque_explicit_encode(name: &Ident) -> TokenStream {
+    quote! {
+        impl Encode for #name {
+            fn encode<W: std::io::Write>(
+                &self,
+                writer: &mut BitWriter<W>,
+            ) -> Result<(), DecodeError> {
+                let len = u8::try_from(self.data.len() + 1)
+                    .map_err(|_| DecodeError::InvalidData("explicit item payload exceeds 254 bytes"))?;
+                writer.write_bits(len as u64, 8)?;
+                for byte in &self.data {
+                    writer.write_bits(*byte as u64, 8)?;
+                }
                 Ok(())
             }
         }

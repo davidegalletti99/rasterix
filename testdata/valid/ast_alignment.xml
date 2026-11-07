@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Exercises the asterix-specs alignment features:
      FX-terminated repetitive, compound FSPEC hole, ASCII string field,
-     signed field. -->
+     signed field, opaque explicit. -->
 <category id="099">
     <item id="010" frn="1">
         <repetitive bytes="1" counter="fx">
@@ -30,5 +30,8 @@
             <field name="dx" bits="12" type="signed"/>
             <field name="dy" bits="12" type="signed"/>
         </fixed>
+    </item>
+    <item id="050" frn="5">
+        <explicit/>
     </item>
 </category>

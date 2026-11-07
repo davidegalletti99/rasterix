@@ -47,7 +47,7 @@ pub enum ItemStructure {
     Fixed(SimpleItem),
     
     #[serde(rename = "explicit")]
-    Explicit(SimpleItem),
+    Explicit(ExplicitItem),
     
     #[serde(rename = "extended")]
     Extended(ExtendedItem),
@@ -64,6 +64,17 @@ pub enum ItemStructure {
 pub struct SimpleItem {
     #[serde(rename = "@bytes")]
     pub bytes: usize,
+
+    #[serde(rename = "$value", default)]
+    pub elements: Vec<Element>,
+}
+
+/// An explicit item: a length byte followed by the payload. Without `bytes`
+/// the payload is opaque and its length is only known at runtime.
+#[derive(Debug, Deserialize)]
+pub struct ExplicitItem {
+    #[serde(rename = "@bytes")]
+    pub bytes: Option<usize>,
 
     #[serde(rename = "$value", default)]
     pub elements: Vec<Element>,
@@ -116,7 +127,7 @@ pub enum CompoundableItem {
     Fixed(SimpleItem),
     
     #[serde(rename = "explicit")]
-    Explicit(SimpleItem),
+    Explicit(ExplicitItem),
     
     #[serde(rename = "extended")]
     Extended(ExtendedItem),

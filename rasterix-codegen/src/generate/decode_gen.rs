@@ -87,6 +87,7 @@ pub fn generate_decode(name: &Ident, layout: &IRLayout) -> TokenStream {
     match layout {
         IRLayout::Fixed { elements, .. } => simple_decode(name, elements, false),
         IRLayout::Explicit { elements, .. } => simple_decode(name, elements, true),
+        IRLayout::OpaqueExplicit => opaque_explicit_decode(name),
         IRLayout::Extended { part_groups, .. } => extended_decode(name, part_groups),
         IRLayout::Repetitive { counter_bits, elements, .. } => {
             repetitive_decode(name, *counter_bits, elements)
@@ -122,6 +123,27 @@ fn simple_decode(name: &Ident, elements: &[IRElement], explicit: bool) -> TokenS
                 Ok(Self {
                     #(#fields),*
                 })
+            }
+        }
+    }
+}
+
+/// Opaque explicit items: the length byte says how many payload bytes follow.
+fn opaque_explicit_decode(name: &Ident) -> TokenStream {
+    quote! {
+        impl Decode for #name {
+            fn decode<R: std::io::Read>(
+                reader: &mut BitReader<R>,
+            ) -> Result<Self, DecodeError> {
+                // Length includes itself, so actual data is len - 1 bytes
+                let len = reader.read_bits(8)? as usize;
+                if len == 0 {
+                    return Err(DecodeError::InvalidData("explicit length must count its own byte"));
+                }
+                let data = (1..len)
+                    .map(|_| reader.read_bits(8).map(|byte| byte as u8))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Self { data })
             }
         }
     }

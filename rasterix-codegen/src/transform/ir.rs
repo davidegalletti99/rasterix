@@ -87,6 +87,11 @@ pub enum IRLayout {
         /// Elements that make up this item
         elements: Vec<IRElement>,
     },
+
+    /// Explicit item whose payload has no declared structure.
+    ///
+    /// Wire format: [LEN:1 byte][LEN-1 opaque bytes]
+    OpaqueExplicit,
     
     /// Variable-length item with FX (extension) bits.
     /// 
@@ -324,6 +329,8 @@ impl IRLayout {
                     });
                 }
             }
+
+            IRLayout::OpaqueExplicit => {}
 
             IRLayout::Compound { sub_items } => {
                 for sub_item in sub_items {

@@ -92,10 +92,13 @@
     The length is specified by an explicit length indicator in the data.
 
     Attributes:
-        bytes - Minimum/base length in bytes
+        bytes - Payload length in bytes. Omitted together with the content,
+                the payload is opaque and its length is read at runtime
 -->
-<!ELEMENT explicit %elements;>
-<!ATTLIST explicit %common-attributes;>
+<!ELEMENT explicit (field | epb | enum | spare)*>
+<!ATTLIST explicit
+    bytes               CDATA #IMPLIED
+>
 
 <!--
     extended: Variable-length data structure with extension mechanism.
