@@ -47,10 +47,10 @@
     </item>
     <item id="060">
         <compound>
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="mode3a" bits="8"/>
             </fixed>
-            <repetitive bytes="1" counter="8">
+            <repetitive id="sub2" bytes="1" counter="8">
                 <field name="code" bits="8"/>
             </repetitive>
         </compound>

@@ -80,6 +80,10 @@ pub enum ItemStructure {
 /// A simple item with a fixed byte size and list of elements.
 #[derive(Debug, Deserialize)]
 pub struct SimpleItem {
+    /// Sub-item name, required when this structure is a compound child
+    #[serde(rename = "@id", default)]
+    pub id: Option<String>,
+
     #[serde(rename = "@bytes")]
     pub bytes: usize,
 
@@ -91,6 +95,10 @@ pub struct SimpleItem {
 /// the payload is opaque and its length is only known at runtime.
 #[derive(Debug, Deserialize)]
 pub struct ExplicitItem {
+    /// Sub-item name, required when this structure is a compound child
+    #[serde(rename = "@id", default)]
+    pub id: Option<String>,
+
     #[serde(rename = "@bytes")]
     pub bytes: Option<usize>,
 
@@ -101,6 +109,10 @@ pub struct ExplicitItem {
 /// An extended item with part groups and automatic FX bits.
 #[derive(Debug, Deserialize)]
 pub struct ExtendedItem {
+    /// Sub-item name, required when this structure is a compound child
+    #[serde(rename = "@id", default)]
+    pub id: Option<String>,
+
     #[serde(rename = "@bytes")]
     pub bytes: usize,
     
@@ -121,6 +133,10 @@ pub struct PartGroup {
 /// A repetitive item that repeats a fixed structure N times.
 #[derive(Debug, Deserialize)]
 pub struct RepetitiveItem {
+    /// Sub-item name, required when this structure is a compound child
+    #[serde(rename = "@id", default)]
+    pub id: Option<String>,
+
     #[serde(rename = "@bytes")]
     pub bytes: usize,
 

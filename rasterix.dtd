@@ -19,9 +19,12 @@
 <!-- PARAMETER ENTITIES                                                  -->
 <!-- ================================================================== -->
 
-<!-- Common attributes for data structures with byte length -->
+<!-- Common attributes for data structures with byte length.
+     id names a compound sub-item: required on a direct child of <compound>,
+     ignored elsewhere. -->
 <!ENTITY % common-attributes "
     bytes               CDATA #REQUIRED
+    id                  CDATA #IMPLIED
 ">
 
 <!-- Element attributes for field-level elements with bit length -->
@@ -120,6 +123,7 @@
 <!ELEMENT explicit (field | epb | enum | spare)*>
 <!ATTLIST explicit
     bytes               CDATA #IMPLIED
+    id                  CDATA #IMPLIED
 >
 
 <!--

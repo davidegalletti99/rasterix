@@ -3,18 +3,18 @@
 <category id="1">
     <item id="100">
         <compound>
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="f1" bits="8"/>
             </fixed>
-            <explicit bytes="2">
+            <explicit id="sub2" bytes="2">
                 <field name="f2" bits="16"/>
             </explicit>
-            <extended bytes="1">
+            <extended id="sub3" bytes="1">
                 <part index="0">
                     <field name="f3" bits="7"/>
                 </part>
             </extended>
-            <repetitive bytes="1" counter="2">
+            <repetitive id="sub4" bytes="1" counter="2">
                 <field name="f4" bits="8"/>
             </repetitive>
         </compound>

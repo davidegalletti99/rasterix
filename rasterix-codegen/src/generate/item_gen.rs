@@ -38,8 +38,8 @@ fn generate_compound_item(name: &Ident, sub_items: &[IRSubItem]) -> TokenStream 
     let mut sub_encodes = Vec::new();
 
     for sub in sub_items {
-        let sub_name = sub_struct_name(name, sub.index);
-        let field_name = sub_field_name(sub.index);
+        let sub_name = sub_struct_name(name, &sub.name);
+        let field_name = sub_field_name(&sub.name);
         let (byte, bit) = frn_to_fspec_position(sub.index);
 
         sub_code.push(generate_item(&sub_name, &sub.layout));
@@ -132,21 +132,22 @@ mod tests {
 
     #[test]
     fn compound_sub_items_are_generated_as_items_behind_an_fspec() {
-        let sub = |index: usize, field: &str| IRSubItem {
+        let sub = |index: usize, name: &str, field: &str| IRSubItem {
             index,
+            name: name.into(),
             layout: IRLayout::Fixed {
                 bytes: 1,
                 elements: vec![IRElement::Field { name: field.into(), bits: 8, kind: FieldKind::Unsigned }],
             },
         };
-        let layout = IRLayout::Compound { sub_items: vec![sub(1, "a"), sub(3, "b")] };
+        let layout = IRLayout::Compound { sub_items: vec![sub(1, "SRL", "a"), sub(3, "SAM", "b")] };
 
-        let code = generate_item(&format_ident!("Item250"), &layout).to_string();
+        let code = generate_item(&format_ident!("Item130"), &layout).to_string();
         assert_code_contains(&code, &[
-            "pub struct Item250Sub1",
-            "pub struct Item250Sub3",
-            "pub sub1 : Option < Item250Sub1 >",
-            "pub sub3 : Option < Item250Sub3 >",
+            "pub struct Item130Srl",
+            "pub struct Item130Sam",
+            "pub srl : Option < Item130Srl >",
+            "pub sam : Option < Item130Sam >",
             // index 1 → FSPEC byte 0 bit 0, index 3 → byte 0 bit 2
             "if fspec . is_set (0usize , 0u8)",
             "if fspec . is_set (0usize , 2u8)",

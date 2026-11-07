@@ -11,11 +11,11 @@
     </item>
     <item id="020">
         <compound>
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="alpha" bits="8"/>
             </fixed>
             <spare/>
-            <fixed bytes="2">
+            <fixed id="sub3" bytes="2">
                 <field name="beta" bits="16"/>
             </fixed>
         </compound>

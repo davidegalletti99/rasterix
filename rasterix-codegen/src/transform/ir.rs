@@ -197,6 +197,9 @@ pub struct IRSubItem {
     /// 1-indexed per the ASTERIX standard (EUROCONTROL-SPEC-0149).
     /// Maps to compound FSPEC bit: index 1 → bit 0.7 (0x80), index 2 → bit 0.6 (0x40), etc.
     pub index: usize,
+
+    /// Sub-item name (e.g. "SRL"); names the generated struct and field
+    pub name: String,
     
     /// The structure of this sub-item 
     /// (can be Fixed/Explicit/Extended/Repetitive)
@@ -482,6 +485,7 @@ mod tests {
         let layout = IRLayout::Compound {
             sub_items: vec![IRSubItem {
                 index: 1,
+                name: "NESTED".into(),
                 layout: IRLayout::Compound { sub_items: vec![] },
             }],
         };

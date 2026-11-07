@@ -91,37 +91,37 @@
     <item id="130">
         <compound>
             <!-- SRL: SSR Plot Runlength -->
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="srl" bits="8"/>
             </fixed>
 
             <!-- SRR: Number of Received Replies for M(SSR) -->
-            <fixed bytes="1">
+            <fixed id="sub2" bytes="1">
                 <field name="srr" bits="8"/>
             </fixed>
 
             <!-- SAM: Amplitude of M(SSR) Reply -->
-            <fixed bytes="1">
+            <fixed id="sub3" bytes="1">
                 <field name="sam" bits="8"/>
             </fixed>
 
             <!-- PRL: Primary Plot Runlength -->
-            <fixed bytes="1">
+            <fixed id="sub4" bytes="1">
                 <field name="prl" bits="8"/>
             </fixed>
 
             <!-- PAM: Amplitude of Primary Plot -->
-            <fixed bytes="1">
+            <fixed id="sub5" bytes="1">
                 <field name="pam" bits="8"/>
             </fixed>
 
             <!-- RPD: Difference in Range between PSR and SSR -->
-            <fixed bytes="1">
+            <fixed id="sub6" bytes="1">
                 <field name="rpd" bits="8"/>
             </fixed>
 
             <!-- APD: Difference in Azimuth between PSR and SSR -->
-            <fixed bytes="1">
+            <fixed id="sub7" bytes="1">
                 <field name="apd" bits="8"/>
             </fixed>
         </compound>
@@ -285,14 +285,14 @@
     <item id="120">
         <compound>
             <!-- CAL: Calculated Doppler Speed -->
-            <fixed bytes="2">
+            <fixed id="sub1" bytes="2">
                 <field name="d" bits="1"/>
                 <spare bits="5"/>
                 <field name="cal" bits="10"/>
             </fixed>
 
             <!-- RDS: Raw Doppler Speed -->
-            <repetitive bytes="6" counter="1">
+            <repetitive id="sub2" bytes="6" counter="1">
                 <field name="dop" bits="16"/>
                 <field name="amb" bits="16"/>
                 <field name="frq" bits="16"/>

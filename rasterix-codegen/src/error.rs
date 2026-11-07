@@ -90,6 +90,10 @@ pub enum CodegenError {
         actual: usize,
     },
 
+    /// A compound child has no `id`, so its generated struct has no name.
+    #[error("Compound sub-item {index} of item '{item}' has no id")]
+    MissingSubItemId { item: String, index: usize },
+
     /// A UAP entry names an item that is not defined.
     #[error("UAP entry '{item}' names no defined item")]
     UnknownUapItem { item: String },

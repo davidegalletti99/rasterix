@@ -3,10 +3,10 @@
 <category id="1">
     <item id="100">
         <compound>
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="flags" bits="8"/>
             </fixed>
-            <fixed bytes="2">
+            <fixed id="sub2" bytes="2">
                 <field name="data" bits="16"/>
             </fixed>
         </compound>

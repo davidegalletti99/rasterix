@@ -126,10 +126,10 @@
     <!-- Test 9: Simple Compound -->
     <item id="090">
         <compound>
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="primary" bits="8"/>
             </fixed>
-            <fixed bytes="2">
+            <fixed id="sub2" bytes="2">
                 <field name="secondary" bits="16"/>
             </fixed>
         </compound>
@@ -139,17 +139,17 @@
     <item id="100">
         <compound>
             <!-- Sub-item 0: Fixed -->
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="flags" bits="8"/>
             </fixed>
             
             <!-- Sub-item 1: Explicit -->
-            <explicit bytes="2">
+            <explicit id="sub2" bytes="2">
                 <field name="data1" bits="16"/>
             </explicit>
             
             <!-- Sub-item 2: Extended -->
-            <extended bytes="2">
+            <extended id="sub3" bytes="2">
                 <part index="0">
                     <field name="ext_a" bits="4"/>
                     <field name="ext_b" bits="3"/>
@@ -160,7 +160,7 @@
             </extended>
             
             <!-- Sub-item 3: Repetitive -->
-            <repetitive bytes="1" counter="2">
+            <repetitive id="sub4" bytes="1" counter="2">
                 <field name="rep_data" bits="8"/>
             </repetitive>
         </compound>

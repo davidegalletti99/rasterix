@@ -15,6 +15,7 @@ use crate::transform::ir::*;
 /// - [`CodegenError::BitCountMismatch`] — element bits do not sum to the declared byte size
 /// - [`CodegenError::ExtendedByteMismatch`] — declared byte count differs from the number of part groups
 /// - [`CodegenError::PartGroupBitMismatch`] — a part group's elements do not sum to 7 data bits
+/// - [`CodegenError::MissingSubItemId`] — a compound child has no `id`
 /// - [`CodegenError::UnknownUapItem`], [`CodegenError::DuplicateUapItem`],
 ///   [`CodegenError::ItemNotInUap`] — the UAP and the items disagree
 pub fn to_ir(cat: Category) -> Result<IR, CodegenError> {
@@ -31,13 +32,11 @@ pub fn to_ir(cat: Category) -> Result<IR, CodegenError> {
 }
 
 fn to_ir_item(item: Item) -> Result<IRItem, CodegenError> {
-    Ok(IRItem {
-        id: item.id,
-        layout: to_ir_item_structure(item.data)?,
-    })
+    let layout = to_ir_item_structure(&item.id, item.data)?;
+    Ok(IRItem { id: item.id, layout })
 }
 
-fn to_ir_item_structure(structure: ItemStructure) -> Result<IRLayout, CodegenError> {
+fn to_ir_item_structure(item_id: &str, structure: ItemStructure) -> Result<IRLayout, CodegenError> {
     match structure {
         ItemStructure::Fixed(simple) => fixed_layout(simple),
         ItemStructure::Explicit(simple) => explicit_layout(simple),
@@ -49,11 +48,20 @@ fn to_ir_item_structure(structure: ItemStructure) -> Result<IRLayout, CodegenErr
             // producing a sub-item (asterix-specs' unassigned "-" slot).
             let mut sub_items = Vec::new();
             for (i, item) in comp.items.into_iter().enumerate() {
-                if matches!(item, CompoundableItem::Spare(_)) {
-                    continue;
-                }
+                let id = match &item {
+                    CompoundableItem::Fixed(simple) => &simple.id,
+                    CompoundableItem::Explicit(explicit) => &explicit.id,
+                    CompoundableItem::Extended(ext) => &ext.id,
+                    CompoundableItem::Repetitive(rep) => &rep.id,
+                    CompoundableItem::Spare(_) => continue,
+                };
+                let name = id.clone().ok_or_else(|| CodegenError::MissingSubItemId {
+                    item: item_id.to_string(),
+                    index: i + 1,
+                })?;
                 sub_items.push(IRSubItem {
                     index: i + 1,
+                    name,
                     layout: to_ir_compoundable_item(item)?,
                 });
             }
@@ -179,6 +187,7 @@ mod tests {
     #[test]
     fn test_validation_fails_on_mismatch() {
         let simple = SimpleItem {
+            id: None,
             bytes: 2,
             elements: vec![Element::Field(Field {
                 name: "test".into(),
@@ -186,7 +195,7 @@ mod tests {
                 field_type: "numeric".into(),
             })],
         };
-        let layout = to_ir_item_structure(ItemStructure::Fixed(simple)).unwrap();
+        let layout = to_ir_item_structure("010", ItemStructure::Fixed(simple)).unwrap();
         let result = layout.validate("test");
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CodegenError::BitCountMismatch { .. }));
@@ -195,19 +204,21 @@ mod tests {
     #[test]
     fn test_validation_passes_on_match() {
         let simple = SimpleItem {
+            id: None,
             bytes: 2,
             elements: vec![
                 Element::Field(Field { name: "a".into(), bits: 8, field_type: "numeric".into() }),
                 Element::Field(Field { name: "b".into(), bits: 8, field_type: "string".into() }),
             ],
         };
-        let layout = to_ir_item_structure(ItemStructure::Fixed(simple)).unwrap();
+        let layout = to_ir_item_structure("010", ItemStructure::Fixed(simple)).unwrap();
         assert!(layout.validate("test").is_ok());
     }
 
     #[test]
     fn test_invalid_field_type_returns_error() {
         let simple = SimpleItem {
+            id: None,
             bytes: 1,
             elements: vec![Element::Field(Field {
                 name: "bad_field".into(),
@@ -215,7 +226,7 @@ mod tests {
                 field_type: "boolean".into(),
             })],
         };
-        let result = to_ir_item_structure(ItemStructure::Fixed(simple));
+        let result = to_ir_item_structure("010", ItemStructure::Fixed(simple));
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CodegenError::InvalidFieldType { .. }));
     }
@@ -223,11 +234,12 @@ mod tests {
     #[test]
     fn test_invalid_counter_returns_error() {
         let rep = RepetitiveItem {
+            id: None,
             bytes: 1,
             counter: "not_a_number".into(),
             elements: vec![],
         };
-        let result = to_ir_item_structure(ItemStructure::Repetitive(rep));
+        let result = to_ir_item_structure("010", ItemStructure::Repetitive(rep));
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CodegenError::InvalidCounter { .. }));
     }
@@ -238,11 +250,12 @@ mod tests {
         // 64 bits would overflow the u64 the generated read/write uses.
         for counter in ["0", "65"] {
             let rep = RepetitiveItem {
+            id: None,
                 bytes: 1,
                 counter: counter.into(),
                 elements: vec![],
             };
-            let result = to_ir_item_structure(ItemStructure::Repetitive(rep));
+            let result = to_ir_item_structure("010", ItemStructure::Repetitive(rep));
             assert!(
                 matches!(result, Err(CodegenError::CounterWidthOutOfRange { .. })),
                 "counter=\"{counter}\" should have been rejected"
@@ -253,6 +266,7 @@ mod tests {
     #[test]
     fn test_invalid_enum_value_returns_error() {
         let simple = SimpleItem {
+            id: None,
             bytes: 1,
             elements: vec![Element::Enum(Enum {
                 name: "test_enum".into(),
@@ -263,7 +277,7 @@ mod tests {
                 }],
             })],
         };
-        let result = to_ir_item_structure(ItemStructure::Fixed(simple));
+        let result = to_ir_item_structure("010", ItemStructure::Fixed(simple));
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CodegenError::InvalidEnumValue { .. }));
     }

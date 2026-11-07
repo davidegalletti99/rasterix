@@ -137,14 +137,14 @@ pub fn element_struct_name(parent: &Ident) -> Ident {
     format_ident!("{parent}Element")
 }
 
-/// One sub-item of a compound item: `Item250Sub1`.
-pub fn sub_struct_name(parent: &Ident, index: usize) -> Ident {
-    format_ident!("{parent}Sub{index}")
+/// A compound sub-item's struct: `Item130Srl`.
+pub fn sub_struct_name(parent: &Ident, name: &str) -> Ident {
+    format_ident!("{parent}{}", pascal_case(name))
 }
 
-/// One sub-item's field in its compound: `sub1`.
-pub fn sub_field_name(index: usize) -> Ident {
-    format_ident!("sub{index}")
+/// A compound sub-item's field in its parent: `srl`.
+pub fn sub_field_name(name: &str) -> Ident {
+    to_snake_case(name)
 }
 
 /// Calculates the FSPEC byte and bit position from an FRN.
@@ -298,7 +298,9 @@ mod tests {
         assert_eq!(module_name(48), format_ident!("cat048"));
         assert_eq!(part_struct_name(&item, 1), format_ident!("Item010Part1"));
         assert_eq!(element_struct_name(&item), format_ident!("Item010Element"));
-        assert_eq!(sub_struct_name(&item, 2), format_ident!("Item010Sub2"));
+        assert_eq!(sub_struct_name(&item, "sub2"), format_ident!("Item010Sub2"));
+        assert_eq!(sub_struct_name(&item, "SRL"), format_ident!("Item010Srl"));
+        assert_eq!(sub_field_name("SRL"), format_ident!("srl"));
     }
 
     #[test]

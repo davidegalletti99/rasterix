@@ -235,12 +235,14 @@ Compound data structure combining multiple sub-items, each with its own presence
 
 Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repetitive`). An empty `<spare/>` entry marks an unassigned FSPEC bit: it skips one presence-bit position without defining a sub-item (matching the `-` slot of asterix-specs).
 
+Each sub-item needs an `id` attribute, which names its generated code the way asterix-specs names compound sub-items: `id="SRL"` inside item 130 becomes struct `Item130Srl` and field `srl`. A missing `id` is an error.
+
 **Example: Radar Plot Characteristics**
 ```xml
 <item id="130">
     <compound>
         <!-- SF1: SSR Plot Runlength -->
-        <fixed bytes="1">
+        <fixed id="sub1" bytes="1">
             <field name="srl" bits="8"/>
         </fixed>
 
@@ -248,7 +250,7 @@ Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repet
         <spare/>
 
         <!-- SF3: Amplitude of Reply -->
-        <fixed bytes="1">
+        <fixed id="sub3" bytes="1">
             <field name="sam" bits="8"/>
         </fixed>
     </compound>
@@ -260,14 +262,14 @@ Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repet
 <item id="120">
     <compound>
         <!-- Calculated Doppler Speed -->
-        <fixed bytes="2">
+        <fixed id="sub1" bytes="2">
             <field name="d" bits="1"/>
             <spare bits="5"/>
             <field name="cal" bits="10"/>
         </fixed>
 
         <!-- Raw Doppler Speed (repetitive) -->
-        <repetitive bytes="6" counter="8">
+        <repetitive id="sub2" bytes="6" counter="8">
             <field name="dop" bits="16"/>
             <field name="amb" bits="16"/>
             <field name="frq" bits="16"/>
@@ -439,13 +441,13 @@ Here's a minimal but complete category definition showcasing various features:
     <!-- Compound: Multiple optional sub-items -->
     <item id="130">
         <compound>
-            <fixed bytes="1">
+            <fixed id="sub1" bytes="1">
                 <field name="sub1" bits="8"/>
             </fixed>
-            <fixed bytes="2">
+            <fixed id="sub2" bytes="2">
                 <field name="sub2" bits="16"/>
             </fixed>
-            <repetitive bytes="4" counter="8">
+            <repetitive id="sub3" bytes="4" counter="8">
                 <field name="sub3" bits="32"/>
             </repetitive>
         </compound>

@@ -91,6 +91,8 @@ fn transform_compound_layout() {
             for (i, sub_item) in sub_items.iter().enumerate() {
                 assert_eq!(sub_item.index, i + 1);
             }
+            let names: Vec<&str> = sub_items.iter().map(|s| s.name.as_str()).collect();
+            assert_eq!(names, ["sub1", "sub2"]);
         }
         _ => panic!("Expected Compound layout"),
     }
@@ -275,4 +277,23 @@ fn transform_handles_same_name_different_parts() {
 fn transform_handles_same_name_different_subitems() {
     let ir = build_ir_from_fixture("valid", "same_name_different_subitems.xml");
     assert!(!ir.category.items.is_empty());
+}
+
+#[test]
+fn compound_sub_item_without_id_is_rejected() {
+    let xml = r#"<category id="001">
+        <item id="100">
+            <compound>
+                <fixed bytes="1"><field name="a" bits="8"/></fixed>
+            </compound>
+        </item>
+        <uap><entry item="100"/></uap>
+    </category>"#;
+    let parsed = parse_category(xml).expect("well-formed XML");
+
+    let err = to_ir(parsed).unwrap_err();
+    assert!(
+        matches!(err, CodegenError::MissingSubItemId { ref item, index: 1 } if item == "100"),
+        "got: {err}"
+    );
 }
