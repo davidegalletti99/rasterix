@@ -1,10 +1,9 @@
 use std::io::{self, Read};
 
 /// Maps an ICAO 6-bit code back to an ASCII byte (ICAO Annex 10, Vol III, Ch 3).
-/// 0 → space, 1–26 → A–Z, 48–57 → 0–9, anything else → space.
+/// 1–26 → A–Z, 48–57 → 0–9, 32 (space) and anything else → space.
 fn icao6_to_ascii(code: u8) -> u8 {
     match code {
-        0 => b' ',
         1..=26 => b'A' + code - 1,
         48..=57 => b'0' + code - 48,
         _ => b' ',
@@ -249,6 +248,20 @@ mod tests {
 
         let s = reader.read_string(3).unwrap();
         assert_eq!(s, "AB");
+    }
+
+    #[test]
+    fn read_string_icao_space_trimmed() {
+        // "AB" then ICAO spaces (32=100000): 000001|000010|100000|100000
+        let mut reader = BitReader::new(Cursor::new(vec![0x04, 0x28, 0x20]));
+        assert_eq!(reader.read_string(3).unwrap(), "AB");
+    }
+
+    #[test]
+    fn read_string_icao_inner_space_kept() {
+        // "A B" then a space: 000001|100000|000010|100000
+        let mut reader = BitReader::new(Cursor::new(vec![0x06, 0x00, 0xA0]));
+        assert_eq!(reader.read_string(3).unwrap(), "A B");
     }
 
     #[test]

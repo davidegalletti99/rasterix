@@ -1,15 +1,17 @@
 use std::io::{self, Write};
 
 /// Maps an ASCII byte to its ICAO 6-bit code (ICAO Annex 10, Vol III, Ch 3).
-/// Space/unknown → 0, A–Z → 1–26, 0–9 → 48–57.
+/// A–Z → 1–26, 0–9 → 48–57, space and anything else → 32 (space).
 fn ascii_to_icao6(c: u8) -> u8 {
     match c {
         b'A'..=b'Z' => c - b'A' + 1,
         b'a'..=b'z' => c - b'a' + 1,
         b'0'..=b'9' => c - b'0' + 48,
-        _ => 0,
+        _ => ICAO_SPACE,
     }
 }
+
+const ICAO_SPACE: u8 = 32;
 
 /// Writes individual bits to a byte-oriented [`Write`] sink.
 ///
@@ -74,7 +76,7 @@ impl<W: Write> BitWriter<W> {
     ///
     /// Writes exactly `byte_len * 8` bits total, encoding each character as a
     /// 6-bit ICAO code. The field holds `byte_len * 8 / 6` characters; `s` is
-    /// space-padded (ICAO code 0) if shorter, or truncated if longer. Any
+    /// space-padded (ICAO code 32) if shorter, or truncated if longer. Any
     /// leftover bits (when `byte_len * 8` is not divisible by 6) are written
     /// as zeros.
     pub fn write_string(&mut self, s: &str, byte_len: usize) -> io::Result<()> {
@@ -83,7 +85,7 @@ impl<W: Write> BitWriter<W> {
         let remainder_bits = total_bits % 6;
         let bytes = s.as_bytes();
         for i in 0..char_count {
-            let code = if i < bytes.len() { ascii_to_icao6(bytes[i]) } else { 0 };
+            let code = if i < bytes.len() { ascii_to_icao6(bytes[i]) } else { ICAO_SPACE };
             self.write_bits(code as u64, 6)?;
         }
         if remainder_bits > 0 {
@@ -317,25 +319,25 @@ mod tests {
 
     #[test]
     fn write_string_basic() {
-        // 6 bytes = 48 bits = 8 ICAO chars; "ABC" padded to 8 with spaces (code 0)
-        // A=1=000001, B=2=000010, C=3=000011, SP=0 (×5)
-        // 000001|000010|000011|000000|000000|000000|000000|000000
-        // → [0x04, 0x20, 0xC0, 0x00, 0x00, 0x00]
+        // 6 bytes = 48 bits = 8 ICAO chars; "ABC" padded to 8 with spaces (code 32)
+        // A=1=000001, B=2=000010, C=3=000011, SP=32=100000 (×5)
+        // 000001|000010|000011|100000|100000|100000|100000|100000
+        // → [0x04, 0x20, 0xE0, 0x82, 0x08, 0x20]
         let mut buffer = Vec::new();
         let mut writer = BitWriter::new(&mut buffer);
         writer.write_string("ABC", 6).unwrap();
-        assert_eq!(buffer, vec![0x04, 0x20, 0xC0, 0x00, 0x00, 0x00]);
+        assert_eq!(buffer, vec![0x04, 0x20, 0xE0, 0x82, 0x08, 0x20]);
     }
 
     #[test]
     fn write_string_padded() {
-        // 3 bytes = 24 bits = 4 ICAO chars; "AB" padded to 4 with spaces (code 0)
-        // A=1=000001, B=2=000010, SP=0 (×2)
-        // 000001|000010|000000|000000 → [0x04, 0x20, 0x00]
+        // 3 bytes = 24 bits = 4 ICAO chars; "AB" padded to 4 with spaces (code 32)
+        // A=1=000001, B=2=000010, SP=32=100000 (×2)
+        // 000001|000010|100000|100000 → [0x04, 0x28, 0x20]
         let mut buffer = Vec::new();
         let mut writer = BitWriter::new(&mut buffer);
         writer.write_string("AB", 3).unwrap();
-        assert_eq!(buffer, vec![0x04, 0x20, 0x00]);
+        assert_eq!(buffer, vec![0x04, 0x28, 0x20]);
     }
 
     #[test]

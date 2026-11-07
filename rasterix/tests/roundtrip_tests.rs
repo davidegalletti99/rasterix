@@ -211,9 +211,9 @@ fn roundtrip_string_field_shorter_than_field() {
     }
 
     // Wire format: ICAO 6-bit "ABC" padded to 8 chars in 6 bytes
-    // A=1, B=2, C=3, then 5 spaces (code 0)
+    // A=1, B=2, C=3, then 5 spaces (code 32)
     assert_eq!(buffer.len(), 6);
-    assert_eq!(buffer, vec![0x04, 0x20, 0xC0, 0x00, 0x00, 0x00]);
+    assert_eq!(buffer, vec![0x04, 0x20, 0xE0, 0x82, 0x08, 0x20]);
 
     let mut reader = BitReader::new(Cursor::new(&buffer));
     let decoded = Item240::decode(&mut reader).unwrap();
@@ -235,8 +235,8 @@ fn roundtrip_string_field_empty() {
         writer.flush().unwrap();
     }
 
-    // All ICAO space codes (0) → 6 zero bytes
-    assert_eq!(buffer, vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    // All ICAO space codes (32=100000)
+    assert_eq!(buffer, vec![0x82, 0x08, 0x20, 0x82, 0x08, 0x20]);
 
     let mut reader = BitReader::new(Cursor::new(&buffer));
     let decoded = Item240::decode(&mut reader).unwrap();
@@ -249,10 +249,10 @@ fn roundtrip_string_field_known_bytes() {
     use multi_item_record::cat048::*;
 
     // Decode from ICAO 6-bit encoding of "BAW123":
-    // B=2, A=1, W=23, 1=49, 2=50, 3=51, SP=0, SP=0
-    // 000010|000001|010111|110001|110010|110011|000000|000000
-    // → [0x08, 0x15, 0xF1, 0xCB, 0x30, 0x00]
-    let bytes = [0x08u8, 0x15, 0xF1, 0xCB, 0x30, 0x00];
+    // B=2, A=1, W=23, 1=49, 2=50, 3=51, SP=32, SP=32
+    // 000010|000001|010111|110001|110010|110011|100000|100000
+    // → [0x08, 0x15, 0xF1, 0xCB, 0x38, 0x20]
+    let bytes = [0x08u8, 0x15, 0xF1, 0xCB, 0x38, 0x20];
 
     let mut reader = BitReader::new(Cursor::new(&bytes));
     let item = Item240::decode(&mut reader).unwrap();
