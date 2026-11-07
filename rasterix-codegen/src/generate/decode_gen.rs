@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
-use crate::transform::ir::{IRElement, IRLayout, IRPartGroup, StringKind};
+use crate::transform::ir::{FieldKind, IRElement, IRLayout, IRPartGroup, StringKind};
 use super::utils::{
     data_fields, element_struct_name, part_field_name, part_struct_name, rust_type_for_bits,
     to_pascal_case, to_snake_case, unwrap_epb,
@@ -30,14 +30,24 @@ fn decode_element(element: &IRElement) -> TokenStream {
             // Spare bits carry no data; consume them and bind nothing.
             return quote! { reader.read_bits(#bits)?; };
         }
-        IRElement::Field { name, bits, string: Some(kind) } => {
+        IRElement::Field { name, bits, kind: FieldKind::String(kind) } => {
             let read_fn = read_string_fn(*kind);
             let byte_len = bits / 8;
             (to_snake_case(name), quote! { reader.#read_fn(#byte_len)? })
         }
-        IRElement::Field { name, bits, string: None } => {
-            let rust_type = rust_type_for_bits(*bits);
+        IRElement::Field { name, bits, kind: FieldKind::Unsigned } => {
+            let rust_type = rust_type_for_bits(*bits, false);
             (to_snake_case(name), quote! { reader.read_bits(#bits)? as #rust_type })
+        }
+        IRElement::Field { name, bits, kind: FieldKind::Signed } => {
+            let rust_type = rust_type_for_bits(*bits, true);
+            // Sign-extend: move the field's sign bit to bit 63, then shift
+            // back arithmetically.
+            let shift = 64 - bits;
+            (
+                to_snake_case(name),
+                quote! { (((reader.read_bits(#bits)? << #shift) as i64) >> #shift) as #rust_type },
+            )
         }
         IRElement::Enum { name, bits, .. } => {
             let enum_type = to_pascal_case(name);
@@ -279,7 +289,7 @@ mod tests {
     fn spare_bits_are_consumed_without_a_field() {
         let elements = vec![
             IRElement::Spare { bits: 3 },
-            IRElement::Field { name: "code".into(), bits: 5, string: None },
+            IRElement::Field { name: "code".into(), bits: 5, kind: FieldKind::Unsigned },
         ];
         let layout = IRLayout::Fixed { bytes: 1, elements };
 
@@ -295,7 +305,7 @@ mod tests {
         // The value's bits are on the wire either way; skipping the read would
         // leave the reader out of phase.
         let elements = vec![IRElement::EPB {
-            content: Box::new(IRElement::Field { name: "alt".into(), bits: 15, string: None }),
+            content: Box::new(IRElement::Field { name: "alt".into(), bits: 15, kind: FieldKind::Unsigned }),
         }];
         let layout = IRLayout::Fixed { bytes: 2, elements };
 
@@ -311,7 +321,7 @@ mod tests {
     fn explicit_item_reads_its_length_byte() {
         let layout = IRLayout::Explicit {
             bytes: 1,
-            elements: vec![IRElement::Field { name: "code".into(), bits: 8, string: None }],
+            elements: vec![IRElement::Field { name: "code".into(), bits: 8, kind: FieldKind::Unsigned }],
         };
 
         let code = generate_decode(&format_ident!("Item010"), &layout).to_string();
@@ -323,7 +333,7 @@ mod tests {
         let layout = IRLayout::Repetitive {
             bytes: 1,
             counter_bits: None,
-            elements: vec![IRElement::Field { name: "code".into(), bits: 7, string: None }],
+            elements: vec![IRElement::Field { name: "code".into(), bits: 7, kind: FieldKind::Unsigned }],
         };
 
         let code = generate_decode(&format_ident!("Item020"), &layout).to_string();

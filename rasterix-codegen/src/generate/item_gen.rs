@@ -106,7 +106,7 @@ fn generate_compound_item(name: &Ident, sub_items: &[IRSubItem]) -> TokenStream 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transform::ir::IRElement;
+    use crate::transform::ir::{FieldKind, IRElement};
     use quote::format_ident;
     use test_utils::assert_code_contains;
 
@@ -115,8 +115,8 @@ mod tests {
         let layout = IRLayout::Fixed {
             bytes: 2,
             elements: vec![
-                IRElement::Field { name: "sac".into(), bits: 8, string: None },
-                IRElement::Field { name: "sic".into(), bits: 8, string: None },
+                IRElement::Field { name: "sac".into(), bits: 8, kind: FieldKind::Unsigned },
+                IRElement::Field { name: "sic".into(), bits: 8, kind: FieldKind::Unsigned },
             ],
         };
 
@@ -136,7 +136,7 @@ mod tests {
             index,
             layout: IRLayout::Fixed {
                 bytes: 1,
-                elements: vec![IRElement::Field { name: field.into(), bits: 8, string: None }],
+                elements: vec![IRElement::Field { name: field.into(), bits: 8, kind: FieldKind::Unsigned }],
             },
         };
         let layout = IRLayout::Compound { sub_items: vec![sub(1, "a"), sub(3, "b")] };

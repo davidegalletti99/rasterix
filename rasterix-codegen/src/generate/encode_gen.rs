@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
-use crate::transform::ir::{IRElement, IRLayout, IRPartGroup, StringKind};
+use crate::transform::ir::{FieldKind, IRElement, IRLayout, IRPartGroup, StringKind};
 use super::utils::{
     element_struct_name, part_field_name, part_struct_name, to_snake_case, unwrap_epb,
 };
@@ -28,7 +28,7 @@ fn encode_element(element: &IRElement) -> TokenStream {
             quote! { writer.write_bits(0, #bits)?; } // Write spare bits as zero
         }
 
-        IRElement::Field { name, bits, string: Some(kind) } => {
+        IRElement::Field { name, bits, kind: FieldKind::String(kind) } => {
             let write_fn = write_string_fn(*kind);
             let byte_len = bits / 8;
             let name = to_snake_case(name);
@@ -47,7 +47,9 @@ fn encode_element(element: &IRElement) -> TokenStream {
             }
         }
 
-        IRElement::Field { name, bits, string: None } => {
+        // Signed values need no special case: `as u64` sign-extends and
+        // write_bits keeps only the low `bits` bits, i.e. two's complement.
+        IRElement::Field { name, bits, kind: FieldKind::Unsigned | FieldKind::Signed } => {
             let name = to_snake_case(name);
             if epb {
                 quote! {
@@ -265,7 +267,7 @@ mod tests {
             bytes: 1,
             elements: vec![
                 IRElement::Spare { bits: 3 },
-                IRElement::Field { name: "code".into(), bits: 5, string: None },
+                IRElement::Field { name: "code".into(), bits: 5, kind: FieldKind::Unsigned },
             ],
         };
 
@@ -282,7 +284,7 @@ mod tests {
         let layout = IRLayout::Fixed {
             bytes: 2,
             elements: vec![IRElement::EPB {
-                content: Box::new(IRElement::Field { name: "alt".into(), bits: 15, string: None }),
+                content: Box::new(IRElement::Field { name: "alt".into(), bits: 15, kind: FieldKind::Unsigned }),
             }],
         };
 
@@ -299,7 +301,7 @@ mod tests {
     fn explicit_item_writes_a_length_that_counts_itself() {
         let layout = IRLayout::Explicit {
             bytes: 3,
-            elements: vec![IRElement::Field { name: "code".into(), bits: 24, string: None }],
+            elements: vec![IRElement::Field { name: "code".into(), bits: 24, kind: FieldKind::Unsigned }],
         };
 
         let code = generate_encode(&format_ident!("Item010"), &layout).to_string();
@@ -310,7 +312,7 @@ mod tests {
     fn extended_fx_bit_follows_the_next_part() {
         let part = |index: usize, name: &str| IRPartGroup {
             index,
-            elements: vec![IRElement::Field { name: name.into(), bits: 7, string: None }],
+            elements: vec![IRElement::Field { name: name.into(), bits: 7, kind: FieldKind::Unsigned }],
         };
         let layout = IRLayout::Extended {
             bytes: 2,

@@ -9,7 +9,7 @@ use crate::transform::ir::*;
 ///
 /// # Errors
 ///
-/// - [`CodegenError::InvalidFieldType`] — a field has a type other than `"string"` or `"numeric"`
+/// - [`CodegenError::InvalidFieldType`] — a field has a type that names no known encoding
 /// - [`CodegenError::InvalidCounter`] — a repetitive item's counter attribute is not a valid integer
 /// - [`CodegenError::InvalidEnumValue`] — an enum variant's value attribute does not fit in `u8`
 /// - [`CodegenError::BitCountMismatch`] — element bits do not sum to the declared byte size
@@ -105,12 +105,13 @@ fn repetitive_layout(rep: RepetitiveItem) -> Result<IRLayout, CodegenError> {
     })
 }
 
-fn check_field_string_type(field: &Field) -> Result<Option<StringKind>, CodegenError> {
+fn field_kind(field: &Field) -> Result<FieldKind, CodegenError> {
     match field.field_type.as_str() {
         // "string" predates the explicit encodings and has always meant ICAO 6-bit.
-        "string" | "icao" => Ok(Some(StringKind::Icao)),
-        "ascii" => Ok(Some(StringKind::Ascii)),
-        "numeric" => Ok(None),
+        "string" | "icao" => Ok(FieldKind::String(StringKind::Icao)),
+        "ascii" => Ok(FieldKind::String(StringKind::Ascii)),
+        "numeric" => Ok(FieldKind::Unsigned),
+        "signed" => Ok(FieldKind::Signed),
         _ => Err(CodegenError::InvalidFieldType {
             field_name: field.name.clone(),
             field_type: field.field_type.clone(),
@@ -121,14 +122,14 @@ fn check_field_string_type(field: &Field) -> Result<Option<StringKind>, CodegenE
 fn to_ir_element(element: Element) -> Result<IRElement, CodegenError> {
     match element {
         Element::Field(field) => {
-            let string = check_field_string_type(&field)?;
-            Ok(IRElement::Field { name: field.name, bits: field.bits, string })
+            let kind = field_kind(&field)?;
+            Ok(IRElement::Field { name: field.name, bits: field.bits, kind })
         }
         Element::EPB(epb) => {
             let content = match epb.content {
                 EPBContent::Field(field) => {
-                    let string = check_field_string_type(&field)?;
-                    IRElement::Field { name: field.name, bits: field.bits, string }
+                    let kind = field_kind(&field)?;
+                    IRElement::Field { name: field.name, bits: field.bits, kind }
                 }
                 EPBContent::Enum(enum_def) => to_ir_enum(enum_def)?,
             };

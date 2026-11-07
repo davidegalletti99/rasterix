@@ -1,9 +1,9 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
-use crate::transform::ir::IRElement;
+use crate::transform::ir::{FieldKind, IRElement};
 
-/// Maps a bit count to the Rust unsigned integer type that holds it.
+/// Maps a bit count to the Rust integer type that holds it, signed or not.
 ///
 /// String fields do not go through this function — they become `String`.
 ///
@@ -12,18 +12,18 @@ use crate::transform::ir::IRElement;
 /// ```
 /// use quote::format_ident;
 /// use rasterix_codegen::generate::utils::rust_type_for_bits;
-/// assert_eq!(rust_type_for_bits(3), format_ident!("u8"));
-/// assert_eq!(rust_type_for_bits(12), format_ident!("u16"));
+/// assert_eq!(rust_type_for_bits(3, false), format_ident!("u8"));
+/// assert_eq!(rust_type_for_bits(12, true), format_ident!("i16"));
 /// ```
-pub fn rust_type_for_bits(bits: usize) -> Ident {
-    let name = match bits {
-        0..=8 => "u8",
-        9..=16 => "u16",
-        17..=32 => "u32",
-        33..=64 => "u64",
-        _ => "u128",
+pub fn rust_type_for_bits(bits: usize, signed: bool) -> Ident {
+    let width = match bits {
+        0..=8 => 8u8,
+        9..=16 => 16,
+        17..=32 => 32,
+        33..=64 => 64,
+        _ => 128,
     };
-    format_ident!("{}", name)
+    format_ident!("{}{}", if signed { "i" } else { "u" }, width)
 }
 
 /// Converts a name to PascalCase for type names.
@@ -208,9 +208,9 @@ pub fn data_fields(elements: &[IRElement]) -> Vec<DataField<'_>> {
 /// The Rust type a data field takes in a generated struct.
 pub fn field_type(field: &DataField) -> TokenStream {
     let base = match field.inner {
-        IRElement::Field { string: Some(_), .. } => quote! { String },
-        IRElement::Field { bits, .. } => {
-            let ty = rust_type_for_bits(*bits);
+        IRElement::Field { kind: FieldKind::String(_), .. } => quote! { String },
+        IRElement::Field { bits, kind, .. } => {
+            let ty = rust_type_for_bits(*bits, *kind == FieldKind::Signed);
             quote! { #ty }
         }
         IRElement::Enum { name, .. } => {
@@ -233,15 +233,15 @@ mod tests {
 
     #[test]
     fn test_rust_type_for_bits() {
-        assert_eq!(rust_type_for_bits(1), format_ident!("u8"));
-        assert_eq!(rust_type_for_bits(8), format_ident!("u8"));
-        assert_eq!(rust_type_for_bits(9), format_ident!("u16"));
-        assert_eq!(rust_type_for_bits(16), format_ident!("u16"));
-        assert_eq!(rust_type_for_bits(17), format_ident!("u32"));
-        assert_eq!(rust_type_for_bits(32), format_ident!("u32"));
-        assert_eq!(rust_type_for_bits(33), format_ident!("u64"));
-        assert_eq!(rust_type_for_bits(64), format_ident!("u64"));
-        assert_eq!(rust_type_for_bits(65), format_ident!("u128"));
+        assert_eq!(rust_type_for_bits(1, false), format_ident!("u8"));
+        assert_eq!(rust_type_for_bits(8, false), format_ident!("u8"));
+        assert_eq!(rust_type_for_bits(9, false), format_ident!("u16"));
+        assert_eq!(rust_type_for_bits(16, false), format_ident!("u16"));
+        assert_eq!(rust_type_for_bits(17, false), format_ident!("u32"));
+        assert_eq!(rust_type_for_bits(32, false), format_ident!("u32"));
+        assert_eq!(rust_type_for_bits(33, false), format_ident!("u64"));
+        assert_eq!(rust_type_for_bits(64, false), format_ident!("u64"));
+        assert_eq!(rust_type_for_bits(65, false), format_ident!("u128"));
     }
 
     #[test]
@@ -286,10 +286,10 @@ mod tests {
     #[test]
     fn data_fields_skips_spares_and_unwraps_epb() {
         let elements = vec![
-            IRElement::Field { name: "sac".into(), bits: 8, string: None },
+            IRElement::Field { name: "sac".into(), bits: 8, kind: FieldKind::Unsigned },
             IRElement::Spare { bits: 4 },
             IRElement::EPB {
-                content: Box::new(IRElement::Field { name: "alt".into(), bits: 12, string: None }),
+                content: Box::new(IRElement::Field { name: "alt".into(), bits: 12, kind: FieldKind::Unsigned }),
             },
         ];
 

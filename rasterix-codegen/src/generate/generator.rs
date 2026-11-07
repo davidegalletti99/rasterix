@@ -67,12 +67,12 @@ mod tests {
             IRElement::Field {
                 name: "sac".to_string(),
                 bits: 8,
-                string: None,
+                kind: FieldKind::Unsigned,
             },
             IRElement::Field {
                 name: "sic".to_string(),
                 bits: 8,
-                string: None,
+                kind: FieldKind::Unsigned,
             },
         ];
         let items = vec![

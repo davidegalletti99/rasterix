@@ -87,18 +87,18 @@ fn extended_structs(name: &Ident, part_groups: &[IRPartGroup]) -> TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transform::ir::StringKind;
+    use crate::transform::ir::{FieldKind, StringKind};
     use quote::format_ident;
     use test_utils::assert_code_contains;
 
     fn elements() -> Vec<IRElement> {
         vec![
-            IRElement::Field { name: "sac".into(), bits: 8, string: None },
+            IRElement::Field { name: "sac".into(), bits: 8, kind: FieldKind::Unsigned },
             IRElement::Spare { bits: 4 },
-            IRElement::Field { name: "alt".into(), bits: 12, string: None },
-            IRElement::Field { name: "callsign".into(), bits: 48, string: Some(StringKind::Icao) },
+            IRElement::Field { name: "alt".into(), bits: 12, kind: FieldKind::Unsigned },
+            IRElement::Field { name: "callsign".into(), bits: 48, kind: FieldKind::String(StringKind::Icao) },
             IRElement::EPB {
-                content: Box::new(IRElement::Field { name: "speed".into(), bits: 16, string: None }),
+                content: Box::new(IRElement::Field { name: "speed".into(), bits: 16, kind: FieldKind::Unsigned }),
             },
         ]
     }
@@ -121,7 +121,7 @@ mod tests {
         let layout = IRLayout::Repetitive {
             bytes: 1,
             counter_bits: Some(8),
-            elements: vec![IRElement::Field { name: "code".into(), bits: 8, string: None }],
+            elements: vec![IRElement::Field { name: "code".into(), bits: 8, kind: FieldKind::Unsigned }],
         };
 
         let code = generate_structs(&format_ident!("Item020"), &layout).to_string();
@@ -137,7 +137,7 @@ mod tests {
     fn extended_layout_makes_only_the_first_part_required() {
         let part = |index: usize, name: &str| IRPartGroup {
             index,
-            elements: vec![IRElement::Field { name: name.into(), bits: 7, string: None }],
+            elements: vec![IRElement::Field { name: name.into(), bits: 7, kind: FieldKind::Unsigned }],
         };
         let layout = IRLayout::Extended {
             bytes: 2,

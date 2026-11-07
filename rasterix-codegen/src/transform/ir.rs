@@ -163,6 +163,17 @@ pub enum StringKind {
     Ascii,
 }
 
+/// How a field's bits are interpreted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FieldKind {
+    /// Unsigned integer
+    Unsigned,
+    /// Two's complement signed integer
+    Signed,
+    /// Character string in the given encoding
+    String(StringKind),
+}
+
 /// Individual elements within an item structure.
 ///
 /// These represent the actual data fields, enumerations, and structural
@@ -177,8 +188,8 @@ pub enum IRElement {
         /// Number of bits
         bits: usize,
 
-        /// String encoding, or None for a numeric field
-        string: Option<StringKind>,
+        /// How the bits are interpreted
+        kind: FieldKind,
     },
     
     /// An Extended Primary Bit field - field/enum with automatic validity bit.
@@ -336,7 +347,7 @@ mod tests {
     use super::*;
 
     fn field(name: &str, bits: usize) -> IRElement {
-        IRElement::Field { name: name.into(), bits, string: None }
+        IRElement::Field { name: name.into(), bits, kind: FieldKind::Unsigned }
     }
 
     fn fixed(bytes: usize, elements: Vec<IRElement>) -> IRLayout {

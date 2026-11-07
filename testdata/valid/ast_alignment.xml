@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Exercises the asterix-specs alignment features:
-     FX-terminated repetitive, compound FSPEC hole, ASCII string field. -->
+     FX-terminated repetitive, compound FSPEC hole, ASCII string field,
+     signed field. -->
 <category id="099">
     <item id="010" frn="1">
         <repetitive bytes="1" counter="fx">
@@ -22,6 +23,12 @@
     <item id="030" frn="3">
         <fixed bytes="4">
             <field name="designator" bits="32" type="ascii"/>
+        </fixed>
+    </item>
+    <item id="040" frn="4">
+        <fixed bytes="3">
+            <field name="dx" bits="12" type="signed"/>
+            <field name="dy" bits="12" type="signed"/>
         </fixed>
     </item>
 </category>

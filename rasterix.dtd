@@ -164,8 +164,8 @@
     Attributes:
         bits - Field width in bits
         name - Field identifier/name
-        type - Optional value interpretation: "numeric" (default),
-               "icao" (ICAO 6-bit characters; "string" is a legacy alias),
+        type - Optional value interpretation: "numeric" (default, unsigned),
+               "signed" (two's complement), "icao" (ICAO 6-bit characters; "string" is a legacy alias),
                or "ascii" (plain 8-bit ASCII characters)
 -->
 <!ELEMENT field EMPTY>

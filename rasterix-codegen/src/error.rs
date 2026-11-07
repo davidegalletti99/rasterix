@@ -40,7 +40,7 @@ pub enum CodegenError {
 
     // ── Transform / validation ───────────────────────────────────────────
     /// A `<field>` element has a `type` attribute that names no known encoding.
-    #[error("Invalid field type '{field_type}' for field '{field_name}': expected 'numeric', 'string', 'icao' or 'ascii'")]
+    #[error("Invalid field type '{field_type}' for field '{field_name}': expected 'numeric', 'signed', 'string', 'icao' or 'ascii'")]
     InvalidFieldType { field_name: String, field_type: String },
 
     /// The counter value in a `<repetitive>` item is not a valid integer.

@@ -252,13 +252,16 @@ A named data field representing a single piece of information.
 |-----------|----------|-------------|
 | `name` | Yes | Field identifier (used in generated code) |
 | `bits` | Yes | Field width in bits |
-| `type` | No | Value interpretation: `numeric` (default), `icao` (ICAO 6-bit characters; `string` is a legacy alias), or `ascii` (plain 8-bit ASCII characters) |
+| `type` | No | Value interpretation: `numeric` (default, unsigned), `signed` (two's complement), `icao` (ICAO 6-bit characters; `string` is a legacy alias), or `ascii` (plain 8-bit ASCII characters) |
+
+Numeric fields generate the smallest unsigned integer that holds `bits` (`u8`..`u64`), signed fields the matching `i8`..`i64`, sign-extended on decode.
 
 String fields (`icao`/`ascii`) generate a `String` struct field; trailing spaces are trimmed on decode and values are space-padded on encode.
 
 ```xml
 <field name="sac" bits="8"/>
 <field name="time_of_day" bits="24"/>
+<field name="x" bits="16" type="signed"/>
 <field name="callsign" bits="48" type="icao"/>
 <field name="designator" bits="56" type="ascii"/>
 ```

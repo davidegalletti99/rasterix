@@ -121,7 +121,7 @@ pub fn generate_record(category: &IRCategory) -> TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transform::ir::{IRElement, IRItem, IRLayout};
+    use crate::transform::ir::{FieldKind, IRElement, IRItem, IRLayout};
     use test_utils::assert_code_contains;
 
     fn item(id: u16, frn: u8) -> IRItem {
@@ -130,7 +130,7 @@ mod tests {
             frn,
             layout: IRLayout::Fixed {
                 bytes: 1,
-                elements: vec![IRElement::Field { name: "code".into(), bits: 8, string: None }],
+                elements: vec![IRElement::Field { name: "code".into(), bits: 8, kind: FieldKind::Unsigned }],
             },
         }
     }

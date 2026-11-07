@@ -933,3 +933,30 @@ fn roundtrip_ascii_string() {
     let decoded = Item030::decode(&mut reader).unwrap();
     assert_eq!(original, decoded);
 }
+
+#[test]
+fn roundtrip_signed_field() {
+    use ast_alignment::cat099::*;
+
+    // Two's complement, 12 bits: -1 → 0xFFF, -2048 → 0x800.
+    let original = Item040 { dx: -1, dy: -2048 };
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        original.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    assert_eq!(buffer, vec![0xFF, 0xF8, 0x00]);
+
+    for (dx, dy) in [(-1, -2048), (2047, 0), (0, -1), (-2048, 2047)] {
+        let original = Item040 { dx, dy };
+        let mut buffer = Vec::new();
+        {
+            let mut writer = BitWriter::new(&mut buffer);
+            original.encode(&mut writer).unwrap();
+            writer.flush().unwrap();
+        }
+        let mut reader = BitReader::new(Cursor::new(&buffer));
+        assert_eq!(original, Item040::decode(&mut reader).unwrap());
+    }
+}

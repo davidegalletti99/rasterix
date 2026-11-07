@@ -134,10 +134,10 @@ fn transform_field_element() {
     match &ir.category.items[0].layout {
         IRLayout::Fixed { elements, .. } => {
             match &elements[0] {
-                IRElement::Field { name, bits, string } => {
+                IRElement::Field { name, bits, kind } => {
                     assert_eq!(name, "sac");
                     assert_eq!(*bits, 8);
-                    assert_eq!(*string, None);
+                    assert_eq!(*kind, FieldKind::Unsigned);
                 }
                 _ => panic!("Expected Field element"),
             }
