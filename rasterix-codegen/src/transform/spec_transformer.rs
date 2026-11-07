@@ -58,6 +58,11 @@ pub(crate) fn element(path: &str, name: &str, bits: usize, rule: &Rule<Content>)
         Rule::ContextFree(content) => content,
         Rule::Dependent(_) => return Err(unsupported(&path, "a \"Dependent\" rule (case)")),
     };
+    // Numbers are read and written in one u64; only text is read byte by byte.
+    let text = matches!(content, Content::ContentString(StringType::StringIcao(_) | StringType::StringAscii(_)));
+    if bits > 64 && !text {
+        return Err(unsupported(&path, &format!("a {bits}-bit numeric element (more than 64 bits)")));
+    }
     Ok(match content {
         Content::ContentRaw(_) => field(FieldKind::Unsigned),
         Content::ContentInteger { signedness } | Content::ContentQuantity { signedness } => field(signed(signedness)),
@@ -352,6 +357,17 @@ mod tests {
 
         let err = element("I048/020", "X", 9, &rule).unwrap_err();
         assert!(matches!(err, CodegenError::Unsupported { ref path, .. } if path == "I048/020/X"), "got: {err}");
+    }
+
+    #[test]
+    fn numeric_element_wider_than_64_bits_is_unsupported() {
+        // read_bits/write_bits carry at most 64 bits; a wider field would be truncated.
+        let err = element("I062/500", "X", 65, &Rule::ContextFree(Content::ContentRaw([]))).unwrap_err();
+        assert!(matches!(err, CodegenError::Unsupported { ref path, .. } if path == "I062/500/X"), "got: {err}");
+
+        // Strings are read byte by byte, so they may be wider.
+        let icao = Rule::ContextFree(Content::ContentString(StringType::StringIcao([])));
+        assert!(element("I062/245", "CHR", 88, &icao).is_ok());
     }
 
     #[test]
