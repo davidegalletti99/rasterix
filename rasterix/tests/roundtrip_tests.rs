@@ -1048,3 +1048,77 @@ fn cat048_json_compound_roundtrip() {
     let mut reader = BitReader::new(Cursor::new(&buffer));
     assert_eq!(Item130::decode(&mut reader).unwrap(), original);
 }
+
+#[test]
+fn cat048_json_multi_item_record_roundtrip() {
+    use cat048_json::cat048::*;
+
+    #[rustfmt::skip]
+    let bytes = [
+        // FSPEC, 4 bytes: FRN 3, 6 | 9, 10 | 16, 20 | 27 (SP); FX on all but the last.
+        0x25, 0x61, 0x45, 0x04,
+        // I020, 3 parts. Part 0: TYP=101 SIM=0 RDP=0 SPI=1 RAB=0 FX=1.
+        // Part 1: TST=0 ERR=0 XPP=1 ME=0 MI=0 FOE/FRI=10 FX=1.
+        // Part 2 (nested groups): ADSB EP=1 VAL=1, SCN EP=0 VAL=0, PAI EP=1 VAL=0, spare, FX=0.
+        0xA5, 0x25, 0xC8,
+        // I090: V=0 G=1 FL=-200 (14-bit two's complement 0x3F38).
+        0x7F, 0x38,
+        // I240: "ABCDEFGH" in ICAO 6-bit characters 1..8.
+        0x04, 0x20, 0xC4, 0x14, 0x61, 0xC8,
+        // I250: REP=1, MBDATA=0x01020304050607, BDS1=4, BDS2=0.
+        0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x40,
+        // I030: two 7-bit codes, 1 then 3, FX-terminated.
+        0x03, 0x06,
+        // I120: FSPEC CAL+RDS; CAL: D=1, spare 5, CAL=-3 (10-bit); RDS: REP=1, DOP AMB FRQ.
+        0xC0, 0x83, 0xFD, 0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+        // SP: length 3 (counts itself), then two opaque bytes.
+        0x03, 0xAA, 0xBB,
+    ];
+
+    let mut reader = BitReader::new(Cursor::new(&bytes));
+    let record = Record::decode(&mut reader).unwrap();
+
+    let i020 = record.item020.as_ref().unwrap();
+    assert_eq!(i020.part0.typ, Item020Part0Typ::from(5));
+    assert_eq!(i020.part0.spi, Item020Part0Spi::from(1));
+    let part1 = i020.part1.as_ref().unwrap();
+    assert_eq!(part1.xpp, Item020Part1Xpp::from(1));
+    assert_eq!(part1.foefri, Item020Part1Foefri::from(2));
+    let part2 = i020.part2.as_ref().unwrap();
+    assert_eq!(
+        (part2.adsb_ep, part2.adsb_val, part2.scn_ep, part2.pai_ep, part2.pai_val),
+        (
+            Item020Part2AdsbEp::from(1),
+            Item020Part2AdsbVal::from(1),
+            Item020Part2ScnEp::from(0),
+            Item020Part2PaiEp::from(1),
+            Item020Part2PaiVal::from(0),
+        )
+    );
+    assert_eq!(i020.part3, None);
+
+    let i090 = record.item090.as_ref().unwrap();
+    assert_eq!((i090.v, i090.g, i090.fl), (Item090V::from(0), Item090G::from(1), -200));
+    assert_eq!(record.item240.as_ref().unwrap().value, "ABCDEFGH");
+    let i250 = &record.item250.as_ref().unwrap().items;
+    assert_eq!(i250, &[Item250Element { mbdata: 0x01020304050607, bds1: 4, bds2: 0 }]);
+    let i030: Vec<u8> = record.item030.as_ref().unwrap().items.iter().map(|e| u8::from(e.value)).collect();
+    assert_eq!(i030, [1, 3]);
+    let i120 = record.item120.as_ref().unwrap();
+    let cal = i120.cal.as_ref().unwrap();
+    assert_eq!((cal.d, cal.cal), (Item120CalD::from(1), -3));
+    assert_eq!(
+        i120.rds.as_ref().unwrap().items,
+        [Item120RdsElement { dop: 0x0102, amb: 0x0304, frq: 0x0506 }]
+    );
+    assert_eq!(record.itemsp, Some(ItemSp { data: vec![0xAA, 0xBB] }));
+    assert_eq!(record.item010, None);
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        record.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    assert_eq!(buffer, bytes);
+}
