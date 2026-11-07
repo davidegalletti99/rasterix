@@ -5,7 +5,7 @@
 
 use rasterix_codegen::builder;
 use std::fs;
-use test_utils::{cleanup_temp_files, create_temp_file, load_fixture, assert_code_contains};
+use test_utils::{create_temp_file, load_fixture, assert_code_contains};
 
 // ============================================================================
 // Basic Builder Tests
@@ -17,7 +17,6 @@ fn builder_from_fixture() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_ok());
     let code = result.unwrap();
@@ -33,7 +32,6 @@ fn builder_generates_record_struct() {
 
     let code = builder::build(temp_path.to_str().unwrap()).unwrap();
 
-    cleanup_temp_files();
     let expected_fragments = [
         "pub mod cat001",
     ];
@@ -47,7 +45,6 @@ fn builder_generates_item_structs() {
 
     let code = builder::build(temp_path.to_str().unwrap()).unwrap();
 
-    cleanup_temp_files();
     let expected_fragments = [
         "pub struct Item010",
         "pub struct Item020",
@@ -142,7 +139,6 @@ fn builder_fails_on_invalid_xml() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_err());
 }
@@ -157,7 +153,6 @@ fn builder_handles_extended_item() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_ok());
     let code = result.unwrap();
@@ -174,7 +169,6 @@ fn builder_handles_compound_item() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_ok());
     let code = result.unwrap();
@@ -192,7 +186,6 @@ fn builder_handles_repetitive_item() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_ok());
 }
@@ -203,7 +196,6 @@ fn builder_handles_enum() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_ok());
     let code = result.unwrap();
@@ -217,7 +209,6 @@ fn builder_handles_mixed_all() {
 
     let result = builder::build(temp_path.to_str().unwrap());
 
-    cleanup_temp_files();
 
     assert!(result.is_ok());
 }

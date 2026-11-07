@@ -97,15 +97,35 @@ pub fn assert_code_not_contains(generated: &str, forbidden_fragments: &[&str]) {
     }
 }
 
-/// Creates a temporary test file and returns its path.
+/// A temporary test file, removed when dropped.
 ///
-/// Files are created in the workspace's `target/test_temp/` directory.
+/// Each file owns its own cleanup: tests run as parallel threads of one
+/// process, so removing files by process id would delete files other tests
+/// are still using.
+pub struct TempFile(PathBuf);
+
+impl std::ops::Deref for TempFile {
+    type Target = std::path::Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        fs::remove_file(&self.0).ok();
+    }
+}
+
+/// Creates a temporary test file in the system temp directory, removed when
+/// the returned [`TempFile`] is dropped.
 ///
 /// # Arguments
 ///
 /// * `content` - Content to write to the file
 /// * `extension` - File extension (e.g., "xml", "rs")
-pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
+pub fn create_temp_file(content: &str, extension: &str) -> TempFile {
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -118,19 +138,7 @@ pub fn create_temp_file(content: &str, extension: &str) -> PathBuf {
     let mut file = fs::File::create(&path).expect("Failed to create temp file");
     file.write_all(content.as_bytes()).expect("Failed to write temp file");
 
-    path
-}
-
-/// Cleans up temporary test files created by the current process.
-pub fn cleanup_temp_files() {
-    let prefix = format!("rasterix_test_{}_", std::process::id());
-    if let Ok(entries) = fs::read_dir(std::env::temp_dir()) {
-        for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().starts_with(&prefix) {
-                fs::remove_file(entry.path()).ok();
-            }
-        }
-    }
+    TempFile(path)
 }
 
 #[cfg(test)]
@@ -154,6 +162,24 @@ mod tests {
     fn test_assert_code_not_contains_pass() {
         let code = "pub struct Foo { pub bar: u8 }";
         assert_code_not_contains(code, &["struct Baz", "private"]);
+    }
+
+    #[test]
+    fn dropping_a_temp_file_leaves_the_others() {
+        // Parallel tests share one process, so cleanup must be per file.
+        let kept = create_temp_file("kept", "xml");
+        drop(create_temp_file("dropped", "xml"));
+
+        assert_eq!(fs::read_to_string(&*kept).unwrap(), "kept");
+    }
+
+    #[test]
+    fn a_temp_file_is_removed_on_drop() {
+        let file = create_temp_file("gone", "xml");
+        let path = file.to_path_buf();
+        drop(file);
+
+        assert!(!path.exists());
     }
 
     #[test]
