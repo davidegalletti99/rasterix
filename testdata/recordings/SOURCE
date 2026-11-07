@@ -1,0 +1,4 @@
+cat048_synthetic.raw was written for this project from invented values (fake
+sensors, addresses and callsigns), following the CAT048 item layouts. It is
+not a capture and is not derived from any other data set; it is covered by
+this repository's MIT licence.
