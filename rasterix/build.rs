@@ -1,6 +1,7 @@
 //! Build script for rasterix.
 //!
-//! Generates Rust code from XML fixtures at compile time for roundtrip testing.
+//! Generates Rust code from definition fixtures (XML and asterix-specs JSON)
+//! at compile time for roundtrip testing.
 //! The generated code is placed in OUT_DIR and included in tests via `include!`.
 
 use std::env;
@@ -28,6 +29,7 @@ fn main() {
         ("spare_bits", "spare_bits.xml"),
         ("bench_record", "bench_record.xml"),
         ("ast_alignment", "ast_alignment.xml"),
+        ("cat048_json", "cat048-1.32.json"),
     ];
 
     // Generate mod.rs that includes all generated modules
@@ -45,17 +47,9 @@ fn main() {
             continue;
         }
 
-        // Read XML content
-        let xml_content = match fs::read_to_string(&xml_path) {
-            Ok(content) => content,
-            Err(e) => {
-                println!("cargo:warning=Failed to read {}: {}", xml_path.display(), e);
-                continue;
-            }
-        };
-
-        // Generate Rust code using rasterix-codegen
-        match rasterix_codegen::builder::build_str(&xml_content) {
+        // Generate Rust code using rasterix-codegen; the extension picks the
+        // frontend (XML or asterix-specs JSON).
+        match rasterix_codegen::builder::build(xml_path.to_str().unwrap()) {
             Ok(code) => {
                 let output_path = generated_dir.join(format!("{module_name}.rs"));
 

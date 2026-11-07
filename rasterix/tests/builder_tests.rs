@@ -212,3 +212,31 @@ fn builder_handles_mixed_all() {
 
     assert!(result.is_ok());
 }
+
+// ============================================================================
+// asterix-specs JSON
+// ============================================================================
+
+const CAT048_JSON: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../testdata/valid/cat048-1.32.json");
+
+#[test]
+fn builder_generates_cat048_from_asterix_specs_json() {
+    let code = builder::build(CAT048_JSON).unwrap();
+
+    assert_code_contains(&code, &[
+        "pub mod cat048",
+        "pub struct Item020Part0",
+        "pub struct Item130Srl",
+        "pub enum Item020Part0Typ",
+    ]);
+}
+
+#[test]
+fn builder_lists_json_among_supported_formats() {
+    let err = builder::build("definition.yaml").unwrap_err();
+
+    assert!(
+        matches!(err, rasterix_codegen::CodegenError::UnsupportedFormat { ref supported, .. } if supported == "xml, json"),
+        "got: {err}"
+    );
+}

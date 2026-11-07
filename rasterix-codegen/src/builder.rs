@@ -1,15 +1,15 @@
 use std::{fs, path::PathBuf};
 use crate::{
     generate::generate,
-    parse::parse_category,
-    transform::transformer::to_ir,
+    parse::{parse_category, parse_spec_json},
+    transform::{spec_transformer::spec_to_ir, transformer::to_ir},
     CodegenError,
 };
 
 /// Definition file extensions [`build`] recognises.
 ///
 /// Adding a frontend means one entry here and one arm in [`build`].
-pub const SUPPORTED_FORMATS: &[&str] = &["xml"];
+pub const SUPPORTED_FORMATS: &[&str] = &["xml", "json"];
 
 /// Builds Rust code from an in-memory XML string.
 ///
@@ -23,6 +23,22 @@ pub const SUPPORTED_FORMATS: &[&str] = &["xml"];
 pub fn build_str(xml: &str) -> Result<String, CodegenError> {
     let category = parse_category(xml)?;
     let ir = to_ir(category)?;
+
+    Ok(generate(&ir).to_string())
+}
+
+/// Builds Rust code from an in-memory asterix-specs JSON definition
+/// (`definition.json` as published by asterix-specs).
+///
+/// # Errors
+///
+/// Returns [`CodegenError::Parse`] if the JSON is malformed or not in the
+/// asterix-specs schema, [`CodegenError::Unsupported`] if it uses a construct
+/// rasterix cannot generate yet, and other [`CodegenError`] variants if the
+/// definition fails validation.
+pub fn build_json_str(json: &str) -> Result<String, CodegenError> {
+    let spec = parse_spec_json(json)?;
+    let ir = spec_to_ir(spec)?;
 
     Ok(generate(&ir).to_string())
 }
@@ -42,6 +58,7 @@ pub fn build(file_path: &str) -> Result<String, CodegenError> {
     // One arm per frontend; the extension is checked before the file is read.
     let build_source: fn(&str) -> Result<String, CodegenError> = match extension.as_str() {
         "xml" => build_str,
+        "json" => build_json_str,
         _ => {
             return Err(CodegenError::UnsupportedFormat {
                 path: file_path.to_string(),

@@ -65,6 +65,17 @@ rasterix = "0.1"  # If generating code at build time
 </category>
 ```
 
+#### Or start from an asterix-specs definition
+
+Instead of writing XML, you can use a definition published by
+[asterix-specs](https://zoranbosnjak.github.io/asterix-specs/) in its JSON form,
+unmodified. For CAT048 edition 1.32, download
+`https://zoranbosnjak.github.io/asterix-specs/specs/cat048/cats/cat1.32/definition.json`
+and pass that file to the builder exactly as you would an XML file; the `.json`
+extension selects this frontend. Constructs rasterix does not support yet
+(`case`-dependent items, BDS registers, `rfs`, multiple UAPs, expansion files)
+stop the build with an error naming the item.
+
 ### 2. Generate code using the Builder API
 
 ```rust

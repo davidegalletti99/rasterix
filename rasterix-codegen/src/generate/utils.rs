@@ -86,7 +86,13 @@ pub fn to_snake_case(name: &str) -> Ident {
         snake.push(c.to_ascii_lowercase());
     }
 
-    format_ident!("{}", snake.replace('-', "_"))
+    let snake = snake.replace('-', "_");
+    // An identifier cannot start with a digit (asterix-specs' I048/110/3DH).
+    if snake.starts_with(|c: char| c.is_ascii_digit()) {
+        format_ident!("_{}", snake)
+    } else {
+        format_ident!("{}", snake)
+    }
 }
 
 // ── Generated names ───────────────────────────────────────────────────────
@@ -282,6 +288,8 @@ mod tests {
         assert_eq!(to_snake_case("Test"), format_ident!("test"));
         assert_eq!(to_snake_case("FieldName"), format_ident!("field_name"));
         assert_eq!(to_snake_case("SSR"), format_ident!("ssr"));
+        // asterix-specs names can start with a digit (I048/110/3DH).
+        assert_eq!(to_snake_case("3DH"), format_ident!("_3dh"));
     }
 
     #[test]

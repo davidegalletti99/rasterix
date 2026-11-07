@@ -990,3 +990,61 @@ fn roundtrip_opaque_explicit() {
     let mut reader = BitReader::new(Cursor::new(&[0u8][..]));
     assert!(Item050::decode(&mut reader).is_err());
 }
+
+// ============================================================================
+// CAT048 from asterix-specs JSON
+// ============================================================================
+
+#[test]
+fn cat048_json_record_roundtrip() {
+    use cat048_json::cat048::*;
+
+    // FSPEC: FRN 1-3 (I010, I140, I020), no FX.
+    // I010: SAC=1 SIC=2. I140: 0x123456.
+    // I020 first part: TYP=001 (single PSR), SIM RDP SPI RAB = 0, FX = 0.
+    let bytes = [0xE0, 0x01, 0x02, 0x12, 0x34, 0x56, 0x20];
+
+    let mut reader = BitReader::new(Cursor::new(&bytes));
+    let record = Record::decode(&mut reader).unwrap();
+    assert_eq!(record.item010, Some(Item010 { sac: 1, sic: 2 }));
+    assert_eq!(record.item140, Some(Item140 { value: 0x123456 }));
+    let item020 = record.item020.as_ref().unwrap();
+    assert_eq!(item020.part0.typ, Item020Part0Typ::SinglePsrDetection);
+    assert_eq!(item020.part0.sim, Item020Part0Sim::from(0));
+    assert_eq!(item020.part1, None);
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        record.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    assert_eq!(buffer, bytes);
+}
+
+#[test]
+fn cat048_json_compound_roundtrip() {
+    use cat048_json::cat048::*;
+
+    let original = Item130 {
+        srl: Some(Item130Srl { value: 0x10 }),
+        srr: None,
+        sam: Some(Item130Sam { value: -10 }),
+        prl: None,
+        pam: None,
+        rpd: None,
+        apd: None,
+    };
+
+    let mut buffer = Vec::new();
+    {
+        let mut writer = BitWriter::new(&mut buffer);
+        original.encode(&mut writer).unwrap();
+        writer.flush().unwrap();
+    }
+    // FSPEC: SRL (slot 1) and SAM (slot 3) → 0xA0; SAM is two's complement.
+    assert_eq!(buffer, [0xA0, 0x10, 0xF6]);
+
+    let mut reader = BitReader::new(Cursor::new(&buffer));
+    assert_eq!(Item130::decode(&mut reader).unwrap(), original);
+}
