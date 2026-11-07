@@ -106,6 +106,11 @@ pub enum CodegenError {
     #[error("Item '{item}' is not listed in the UAP")]
     ItemNotInUap { item: String },
 
+    /// A definition uses a construct rasterix cannot generate code for yet.
+    /// `path` locates it, e.g. `I048/020/TYP`.
+    #[error("{path}: {feature} is not supported yet")]
+    Unsupported { path: String, feature: String },
+
     // ── Path ──────────────────────────────────────────────────────────────
     /// A file path contains non-UTF-8 bytes and cannot be used.
     #[error("File path is not valid UTF-8")]
