@@ -94,11 +94,11 @@ fn generate_enum_code() {
     let code = generate_from_fixture("valid", "enum_basic.xml");
 
     assert_code_contains(&code, &[
-        "pub enum TargetType",
+        "pub enum Item010TargetType",
         "Psr = 1u8",
         "Ssr = 2u8",
         "Unknown (u8)",
-        "impl From < u8 > for TargetType",
+        "impl From < u8 > for Item010TargetType",
     ]);
 }
 

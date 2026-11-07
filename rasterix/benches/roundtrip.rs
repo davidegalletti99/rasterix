@@ -56,7 +56,7 @@ fn complex_block() -> bench_record::cat062::DataBlock {
                 }),
                 item015: (i % 2 == 0).then(|| Item015 {
                     service_id: (i % 16) as u8,
-                    quality: Quality::from((i % 4) as u8),
+                    quality: Item015Quality::from((i % 4) as u8),
                 }),
                 item020: (i % 3 == 0).then(|| Item020 {
                     part0: Item020Part0 { typ: 5, src: 9 },

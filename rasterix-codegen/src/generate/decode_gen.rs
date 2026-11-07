@@ -3,8 +3,8 @@ use quote::{format_ident, quote};
 
 use crate::transform::ir::{FieldKind, IRElement, IRLayout, IRPartGroup, StringKind};
 use super::utils::{
-    data_fields, element_struct_name, part_field_name, part_struct_name, rust_type_for_bits,
-    to_pascal_case, to_snake_case, unwrap_epb,
+    data_fields, element_struct_name, enum_type_name, part_field_name, part_struct_name,
+    rust_type_for_bits, to_snake_case, unwrap_epb,
 };
 
 /// Returns the BitReader method used to read a string of the given kind.
@@ -15,13 +15,13 @@ fn read_string_fn(kind: StringKind) -> Ident {
     }
 }
 
-/// Emits the read for one element, binding it to a local named after the
-/// struct field it fills.
+/// Emits the read for one element of `owner`, binding it to a local named
+/// after the struct field it fills.
 ///
 /// An EPB-wrapped element reads its presence bit and then its value either
 /// way: the value's bits are on the wire whether or not it is valid, so the
 /// read cannot be skipped, only its result discarded.
-fn decode_element(element: &IRElement) -> TokenStream {
+fn decode_element(owner: &Ident, element: &IRElement) -> TokenStream {
     let (inner, epb) = unwrap_epb(element);
 
     let (name, read) = match inner {
@@ -50,7 +50,7 @@ fn decode_element(element: &IRElement) -> TokenStream {
             )
         }
         IRElement::Enum { name, bits, .. } => {
-            let enum_type = to_pascal_case(name);
+            let enum_type = enum_type_name(owner, name);
             (
                 to_snake_case(name),
                 quote! { #enum_type::from(reader.read_bits(#bits)? as u8) },
@@ -72,9 +72,9 @@ fn decode_element(element: &IRElement) -> TokenStream {
     }
 }
 
-/// Emits the reads for a run of elements, in wire order.
-fn decode_elements(elements: &[IRElement]) -> Vec<TokenStream> {
-    elements.iter().map(decode_element).collect()
+/// Emits the reads for a run of the elements of `owner`, in wire order.
+fn decode_elements(owner: &Ident, elements: &[IRElement]) -> Vec<TokenStream> {
+    elements.iter().map(|element| decode_element(owner, element)).collect()
 }
 
 /// The struct's field names, in declaration order, for `Ok(Self { .. })`.
@@ -100,7 +100,7 @@ pub fn generate_decode(name: &Ident, layout: &IRLayout) -> TokenStream {
 
 /// Fixed and explicit items: read the elements straight through.
 fn simple_decode(name: &Ident, elements: &[IRElement], explicit: bool) -> TokenStream {
-    let reads = decode_elements(elements);
+    let reads = decode_elements(name, elements);
     let fields = field_names(elements);
 
     // An explicit item is prefixed by its own length. The elements already
@@ -160,7 +160,7 @@ fn extended_decode(name: &Ident, part_groups: &[IRPartGroup]) -> TokenStream {
         let part_name = part_struct_name(name, group.index);
         let field_name = part_field_name(group.index);
 
-        let reads = decode_elements(&group.elements);
+        let reads = decode_elements(&part_name, &group.elements);
         let part_fields = field_names(&group.elements);
 
         part_impls.push(quote! {
@@ -252,7 +252,7 @@ fn repetitive_decode(
     elements: &[IRElement],
 ) -> TokenStream {
     let element_name = element_struct_name(name);
-    let reads = decode_elements(elements);
+    let reads = decode_elements(&element_name, elements);
     let fields = field_names(elements);
 
     let decode_body = match counter_bits {

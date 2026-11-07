@@ -115,6 +115,13 @@ pub fn item_field_name(id: &str) -> Ident {
     format_ident!("item{}", id.to_lowercase())
 }
 
+/// An enum's type, named after the struct declaring the field:
+/// `Item020Part0Typ`. Enums are emitted at module level, so the field name
+/// alone would collide across items.
+pub fn enum_type_name(owner: &Ident, field: &str) -> Ident {
+    format_ident!("{owner}{}", pascal_case(field))
+}
+
 /// One part of an extended item: `Item010Part0`.
 pub fn part_struct_name(parent: &Ident, index: usize) -> Ident {
     format_ident!("{parent}Part{index}")
@@ -209,8 +216,9 @@ pub fn data_fields(elements: &[IRElement]) -> Vec<DataField<'_>> {
         .collect()
 }
 
-/// The Rust type a data field takes in a generated struct.
-pub fn field_type(field: &DataField) -> TokenStream {
+/// The Rust type a data field takes in `owner`, the generated struct
+/// declaring it.
+pub fn field_type(owner: &Ident, field: &DataField) -> TokenStream {
     let base = match field.inner {
         IRElement::Field { kind: FieldKind::String(_), .. } => quote! { String },
         IRElement::Field { bits, kind, .. } => {
@@ -218,7 +226,7 @@ pub fn field_type(field: &DataField) -> TokenStream {
             quote! { #ty }
         }
         IRElement::Enum { name, .. } => {
-            let ty = to_pascal_case(name);
+            let ty = enum_type_name(owner, name);
             quote! { #ty }
         }
         other => unreachable!("data_fields only yields Field or Enum, got {other:?}"),
@@ -283,6 +291,10 @@ mod tests {
         assert_eq!(item_field_name("010"), format_ident!("item010"));
         assert_eq!(item_struct_name("SP"), format_ident!("ItemSp"));
         assert_eq!(item_field_name("SP"), format_ident!("itemsp"));
+        assert_eq!(
+            enum_type_name(&format_ident!("Item030Element"), "value"),
+            format_ident!("Item030ElementValue")
+        );
         assert_eq!(module_name(48), format_ident!("cat048"));
         assert_eq!(part_struct_name(&item, 1), format_ident!("Item010Part1"));
         assert_eq!(element_struct_name(&item), format_ident!("Item010Element"));
@@ -303,7 +315,8 @@ mod tests {
         let names: Vec<_> = fields.iter().map(|f| f.name.to_string()).collect();
         assert_eq!(names, ["sac", "alt"], "spare must not reach the struct");
 
-        assert_eq!(field_type(&fields[0]).to_string(), "u8");
-        assert_eq!(field_type(&fields[1]).to_string(), "Option < u16 >");
+        let owner = format_ident!("Item010");
+        assert_eq!(field_type(&owner, &fields[0]).to_string(), "u8");
+        assert_eq!(field_type(&owner, &fields[1]).to_string(), "Option < u16 >");
     }
 }

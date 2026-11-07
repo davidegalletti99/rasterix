@@ -33,7 +33,7 @@ pub fn generate_struct(name: &Ident, elements: &[IRElement]) -> TokenStream {
         .iter()
         .map(|field| {
             let field_name = &field.name;
-            let ty = field_type(field);
+            let ty = field_type(name, field);
             quote! { pub #field_name: #ty }
         })
         .collect();

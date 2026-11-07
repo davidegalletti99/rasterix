@@ -304,7 +304,7 @@ fn roundtrip_enum_known_values() {
 
     // Test with known enum values
     let original = Item010 {
-        target_type: TargetType::Psr,
+        target_type: Item010TargetType::Psr,
     };
 
     let mut buffer = Vec::new();
@@ -324,7 +324,7 @@ fn roundtrip_enum_known_values() {
 fn roundtrip_enum_all_variants() {
     use enum_basic::cat001::*;
 
-    for variant in [TargetType::Psr, TargetType::Ssr] {
+    for variant in [Item010TargetType::Psr, Item010TargetType::Ssr] {
         let original = Item010 {
             target_type: variant.clone(),
         };

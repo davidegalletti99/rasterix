@@ -15,7 +15,7 @@ pub fn generate_item(name: &Ident, layout: &IRLayout) -> TokenStream {
     match layout {
         IRLayout::Compound { sub_items } => generate_compound_item(name, sub_items),
         _ => {
-            let enums = collect_enums(layout).iter().map(generate_enum).collect::<Vec<_>>();
+            let enums = collect_enums(name, layout).iter().map(generate_enum).collect::<Vec<_>>();
             let structs = generate_structs(name, layout);
             let decode = generate_decode(name, layout);
             let encode = generate_encode(name, layout);
