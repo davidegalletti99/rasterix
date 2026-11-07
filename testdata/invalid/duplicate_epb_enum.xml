@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="10" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <epb>
                 <enum name="quality" bits="2">
@@ -12,4 +12,7 @@
             <field name="quality" bits="8"/>  <!-- DUPLICATE: EPB generates 'quality' field -->
         </fixed>
     </item>
+    <uap>
+        <entry item="010"/>
+    </uap>
 </category>

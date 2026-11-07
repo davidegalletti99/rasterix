@@ -17,19 +17,38 @@ pub struct IR {
 }
 
 impl IR {
-    /// Builds the IR for a category and validates every item's layout.
+    /// Builds the IR for a category, validating every item's layout and the
+    /// UAP that places the items in the record.
     ///
     /// # Errors
     ///
     /// Returns [`CodegenError::BitCountMismatch`],
     /// [`CodegenError::ExtendedByteMismatch`] or
     /// [`CodegenError::PartGroupBitMismatch`] if an item's elements do not
-    /// match its declared size. See [`IRLayout::validate`].
-    pub fn new(id: u8, items: Vec<IRItem>) -> Result<Self, CodegenError> {
+    /// match its declared size (see [`IRLayout::validate`]), and
+    /// [`CodegenError::UnknownUapItem`], [`CodegenError::DuplicateUapItem`] or
+    /// [`CodegenError::ItemNotInUap`] if the UAP and the items disagree.
+    pub fn new(id: u8, items: Vec<IRItem>, uap: Vec<UapSlot>) -> Result<Self, CodegenError> {
         for item in &items {
-            item.layout.validate(&format!("I{:03}", item.id))?;
+            item.layout.validate(&format!("I{}", item.id))?;
         }
-        Ok(IR { category: IRCategory { id, items } })
+
+        let mut listed = std::collections::HashSet::new();
+        for slot in &uap {
+            if let UapSlot::Item(name) = slot {
+                if !items.iter().any(|item| &item.id == name) {
+                    return Err(CodegenError::UnknownUapItem { item: name.clone() });
+                }
+                if !listed.insert(name.as_str()) {
+                    return Err(CodegenError::DuplicateUapItem { item: name.clone() });
+                }
+            }
+        }
+        if let Some(item) = items.iter().find(|item| !listed.contains(item.id.as_str())) {
+            return Err(CodegenError::ItemNotInUap { item: item.id.clone() });
+        }
+
+        Ok(IR { category: IRCategory { id, items, uap } })
     }
 }
 
@@ -39,22 +58,47 @@ pub struct IRCategory {
     /// Category ID (e.g., 48 for CAT048)
     pub id: u8,
     
-    /// All items in this category
+    /// All items in this category, in definition order
     pub items: Vec<IRItem>,
+
+    /// User Application Profile: slot n is FRN n + 1, i.e. FSPEC bit n
+    /// counting from the MSB and skipping the FX bits. It also fixes the order
+    /// items appear on the wire.
+    pub uap: Vec<UapSlot>,
+}
+
+impl IRCategory {
+    /// The items in UAP order, each with its 1-indexed FRN. Spare slots
+    /// consume an FRN without yielding an item.
+    pub fn items_by_frn(&self) -> impl Iterator<Item = (usize, &IRItem)> {
+        self.uap.iter().enumerate().filter_map(|(i, slot)| match slot {
+            UapSlot::Item(name) => self
+                .items
+                .iter()
+                .find(|item| &item.id == name)
+                .map(|item| (i + 1, item)),
+            UapSlot::Spare => None,
+        })
+    }
+}
+
+/// One position of the User Application Profile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UapSlot {
+    /// The item with this id
+    Item(String),
+
+    /// An unassigned FRN (asterix-specs' `-`)
+    Spare,
 }
 
 /// A single data item within a category.
 #[derive(Debug)]
 pub struct IRItem {
-    /// Item ID (e.g., 010, 020, 290). Names the generated struct only; it is
-    /// never written to the wire, so it is not limited to one byte.
-    pub id: u16,
-    
-    /// Field Reference Number — determines position in record FSPEC.
-    /// 1-indexed per the ASTERIX standard (EUROCONTROL-SPEC-0149):
-    /// FRN 1 → bit 0.7 (0x80), FRN 2 → bit 0.6 (0x40), FRN 7 → bit 0.1 (0x02),
-    /// FRN 8 → byte 1 bit 0.7 (0x80), etc.
-    pub frn: u8,
+    /// Item ID (e.g. "010", "290", "SP"). Names the generated struct and the
+    /// UAP slot; it is never written to the wire. The FRN comes from the
+    /// item's position in [`IRCategory::uap`].
+    pub id: String,
     
     /// The structural layout of this item
     pub layout: IRLayout,
@@ -361,12 +405,52 @@ mod tests {
         IRLayout::Fixed { bytes, elements }
     }
 
+    fn item(id: &str) -> IRItem {
+        IRItem { id: id.into(), layout: fixed(1, vec![field("code", 8)]) }
+    }
+
+    fn slot(id: &str) -> UapSlot {
+        UapSlot::Item(id.into())
+    }
+
     #[test]
     fn new_validates_every_item() {
-        let items = vec![IRItem { id: 10, frn: 1, layout: fixed(2, vec![field("sac", 8)]) }];
+        let items = vec![IRItem { id: "010".into(), layout: fixed(2, vec![field("sac", 8)]) }];
 
-        let err = IR::new(48, items).expect_err("8 bits do not fill 2 bytes");
+        let err = IR::new(48, items, vec![slot("010")]).expect_err("8 bits do not fill 2 bytes");
         assert!(matches!(err, CodegenError::BitCountMismatch { .. }), "got: {err}");
+    }
+
+    #[test]
+    fn uap_must_name_defined_items() {
+        let err = IR::new(48, vec![item("010")], vec![slot("010"), slot("020")]).unwrap_err();
+        assert!(matches!(err, CodegenError::UnknownUapItem { ref item } if item == "020"), "got: {err}");
+    }
+
+    #[test]
+    fn uap_must_not_list_an_item_twice() {
+        let err = IR::new(48, vec![item("010")], vec![slot("010"), slot("010")]).unwrap_err();
+        assert!(matches!(err, CodegenError::DuplicateUapItem { ref item } if item == "010"), "got: {err}");
+    }
+
+    #[test]
+    fn every_item_must_be_in_the_uap() {
+        let err = IR::new(48, vec![item("010"), item("SP")], vec![slot("010")]).unwrap_err();
+        assert!(matches!(err, CodegenError::ItemNotInUap { ref item } if item == "SP"), "got: {err}");
+    }
+
+    #[test]
+    fn frn_is_the_uap_position_and_spares_take_one() {
+        // Definition order is irrelevant: the UAP alone orders the record.
+        let ir = IR::new(
+            48,
+            vec![item("SP"), item("010"), item("020")],
+            vec![slot("010"), UapSlot::Spare, slot("020"), slot("SP")],
+        )
+        .unwrap();
+
+        let frns: Vec<_> = ir.category.items_by_frn().map(|(frn, item)| (frn, item.id.as_str())).collect();
+        assert_eq!(frns, vec![(1, "010"), (3, "020"), (4, "SP")]);
     }
 
     #[test]

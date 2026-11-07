@@ -8,8 +8,9 @@
     Air Traffic Control (ATC) systems.
 
     Structure Overview:
-    - category: Root element containing one or more items
-    - item: A Data Item with a unique ID and FRN (Field Reference Number)
+    - category: Root element containing one or more items and a UAP
+    - item: A Data Item with a unique ID
+    - uap: The User Application Profile, giving each item its FRN
     - Data structures: fixed, explicit, extended, repetitive, compound
     - Field elements: field, spare, enum, epb (Element Populated Bit)
 -->
@@ -44,9 +45,9 @@
     Attributes:
         id - Category identifier (e.g., "001", "048", "062")
 
-    Contains: One or more item elements
+    Contains: One or more item elements, then the uap
 -->
-<!ELEMENT category (item+)>
+<!ELEMENT category (item+, uap)>
 <!ATTLIST category
     id                  CDATA #REQUIRED
 >
@@ -59,8 +60,7 @@
     item: Represents a single ASTERIX Data Item.
 
     Attributes:
-        id  - Data Item identifier (e.g., "010", "020")
-        frn - Field Reference Number for UAP (User Application Profile)
+        id  - Data Item identifier (e.g., "010", "020", "SP", "RE")
 
     Contains: A data structure (fixed, explicit, extended, repetitive)
               or a compound structure
@@ -68,7 +68,29 @@
 <!ELEMENT item (%compoundable-data; | compound)>
 <!ATTLIST item
     id                  CDATA #REQUIRED
-    frn                 CDATA #REQUIRED
+>
+
+<!-- ================================================================== -->
+<!-- USER APPLICATION PROFILE                                            -->
+<!-- ================================================================== -->
+
+<!--
+    uap: The record's FSPEC slots in order. The Nth child is FRN N, so it
+    also fixes the order items appear on the wire. Every item is listed
+    exactly once. An empty <spare/> is an unassigned FRN (the "-" of
+    asterix-specs).
+-->
+<!ELEMENT uap (entry | spare)+>
+
+<!--
+    entry: One FSPEC slot holding an item.
+
+    Attributes:
+        item - The id of the item in this slot
+-->
+<!ELEMENT entry EMPTY>
+<!ATTLIST entry
+    item                CDATA #REQUIRED
 >
 
 <!-- ================================================================== -->

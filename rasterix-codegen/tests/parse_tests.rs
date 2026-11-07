@@ -18,8 +18,8 @@ fn parse_simple_fixed_item() {
 
     assert_eq!(category.id, 1);
     assert_eq!(category.items.len(), 1);
-    assert_eq!(category.items[0].id, 10);
-    assert_eq!(category.items[0].frn, 1);
+    assert_eq!(category.items[0].id, "010");
+    assert!(matches!(&category.uap.slots[..], [UapEntry::Entry { item }] if item == "010"));
 }
 
 #[test]

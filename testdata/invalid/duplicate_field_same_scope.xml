@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="10" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <field name="value" bits="8"/>
             <field name="value" bits="8"/>  <!-- DUPLICATE: same scope -->
         </fixed>
     </item>
+    <uap>
+        <entry item="010"/>
+    </uap>
 </category>

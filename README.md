@@ -14,7 +14,7 @@ In practice, ASTERIX carries:
 - **MLAT positions** — multilateration fixes derived from time-difference-of-arrival across receiver networks
 - **System status and alarms** — sensor health, track quality indicators, and operational notices
 
-The format organises data into numbered **categories** (e.g. CAT 048 for monoradar target reports, CAT 062 for SDPS tracks). Each category defines a set of optional **data items**, and a compact bit-field header called the **FSPEC** (Field Specification) indicates which items are present in each record. Items are identified by a 1-indexed **Field Reference Number (FRN)**, matching the bit position in the FSPEC.
+The format organises data into numbered **categories** (e.g. CAT 048 for monoradar target reports, CAT 062 for SDPS tracks). Each category defines a set of optional **data items**, and a compact bit-field header called the **FSPEC** (Field Specification) indicates which items are present in each record. Items are identified by a 1-indexed **Field Reference Number (FRN)**, matching the bit position in the FSPEC; the category's **UAP** (User Application Profile) assigns each item its FRN.
 
 The full specification is published by EUROCONTROL as [EUROCONTROL-SPEC-0149](https://www.eurocontrol.int/asterix) and is freely available.
 
@@ -47,17 +47,21 @@ rasterix = "0.1"  # If generating code at build time
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "rasterix.dtd">
 <category id="048">
-    <item id="010" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
         </fixed>
     </item>
-    <item id="140" frn="2">
+    <item id="140">
         <fixed bytes="3">
             <field name="time_of_day" bits="24"/>
         </fixed>
     </item>
+    <uap>
+        <entry item="010"/>
+        <entry item="140"/>
+    </uap>
 </category>
 ```
 
@@ -246,13 +250,13 @@ From this XML:
 
 ```xml
 <category id="48">
-    <item id="010" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
         </fixed>
     </item>
-    <item id="020" frn="2">
+    <item id="020">
         <fixed bytes="1">
             <enum name="target_type" bits="3">
                 <value name="PSR" value="1"/>
@@ -261,6 +265,10 @@ From this XML:
             <spare bits="5"/>
         </fixed>
     </item>
+    <uap>
+        <entry item="010"/>
+        <entry item="020"/>
+    </uap>
 </category>
 ```
 

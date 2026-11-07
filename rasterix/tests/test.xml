@@ -16,7 +16,7 @@
 <category id="255">
     
     <!-- Test 1: Simple Fixed Item -->
-    <item id="010" frn="0">
+    <item id="010">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
@@ -24,7 +24,7 @@
     </item>
     
     <!-- Test 2: Fixed with Enum -->
-    <item id="020" frn="1">
+    <item id="020">
         <fixed bytes="1">
             <enum name="message_type" bits="3">
                 <value name="NORTH_MARKER" value="0"/>
@@ -37,7 +37,7 @@
     </item>
     
     <!-- Test 3: Fixed with EPB -->
-    <item id="030" frn="2">
+    <item id="030">
         <fixed bytes="2">
             <epb>
                 <field name="warning_level" bits="3"/>
@@ -55,7 +55,7 @@
     </item>
     
     <!-- Test 4: Extended Item (Single Part) -->
-    <item id="040" frn="3">
+    <item id="040">
         <extended bytes="1">
             <part index="0">
                 <field name="bit1" bits="1"/>
@@ -70,7 +70,7 @@
     </item>
     
     <!-- Test 5: Extended Item (Multiple Parts) -->
-    <item id="050" frn="4">
+    <item id="050">
         <extended bytes="3">
             <part index="0">
                 <field name="a" bits="2"/>
@@ -93,7 +93,7 @@
     </item>
     
     <!-- Test 6: Explicit Item -->
-    <item id="060" frn="5">
+    <item id="060">
         <explicit bytes="4">
             <field name="altitude" bits="16"/>
             <field name="speed" bits="16"/>
@@ -101,7 +101,7 @@
     </item>
     
     <!-- Test 7: Repetitive Item -->
-    <item id="070" frn="6">
+    <item id="070">
         <repetitive bytes="3" counter="5">
             <field name="azimuth" bits="16"/>
             <field name="range" bits="8"/>
@@ -109,7 +109,7 @@
     </item>
     
     <!-- Test 8: Repetitive with EPB and Enum -->
-    <item id="080" frn="7">
+    <item id="080">
         <repetitive bytes="2" counter="3">
             <epb>
                 <enum name="track_status" bits="2">
@@ -124,7 +124,7 @@
     </item>
     
     <!-- Test 9: Simple Compound -->
-    <item id="090" frn="8">
+    <item id="090">
         <compound>
             <fixed bytes="1">
                 <field name="primary" bits="8"/>
@@ -136,7 +136,7 @@
     </item>
     
     <!-- Test 10: Complex Compound -->
-    <item id="100" frn="9">
+    <item id="100">
         <compound>
             <!-- Sub-item 0: Fixed -->
             <fixed bytes="1">
@@ -167,14 +167,14 @@
     </item>
     
     <!-- Test 11: All Spare Bits -->
-    <item id="110" frn="10">
+    <item id="110">
         <fixed bytes="2">
             <spare bits="16"/>
         </fixed>
     </item>
     
     <!-- Test 12: Mixed Everything -->
-    <item id="120" frn="11">
+    <item id="120">
         <fixed bytes="4">
             <field name="field1" bits="4"/>
             <epb>
@@ -197,4 +197,18 @@
         </fixed>
     </item>
     
+    <uap>
+        <entry item="010"/>
+        <entry item="020"/>
+        <entry item="030"/>
+        <entry item="040"/>
+        <entry item="050"/>
+        <entry item="060"/>
+        <entry item="070"/>
+        <entry item="080"/>
+        <entry item="090"/>
+        <entry item="100"/>
+        <entry item="110"/>
+        <entry item="120"/>
+    </uap>
 </category>

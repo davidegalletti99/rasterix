@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="80" frn="1">
+    <item id="080">
         <repetitive bytes="2" counter="3">
             <epb>
                 <enum name="status" bits="2">
@@ -13,4 +13,7 @@
             <spare bits="1"/>
         </repetitive>
     </item>
+    <uap>
+        <entry item="080"/>
+    </uap>
 </category>

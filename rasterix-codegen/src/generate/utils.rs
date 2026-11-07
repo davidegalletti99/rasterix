@@ -37,8 +37,14 @@ pub fn rust_type_for_bits(bits: usize, signed: bool) -> Ident {
 /// assert_eq!(to_pascal_case("SSR"), format_ident!("Ssr"));
 /// ```
 pub fn to_pascal_case(name: &str) -> Ident {
+    format_ident!("{}", pascal_case(name))
+}
+
+/// The PascalCase spelling of `name`, which need not be an identifier on its
+/// own (`"010"` stays `"010"`).
+fn pascal_case(name: &str) -> String {
     let pascal_spaces_list= ['_', '-'];
-    let pascal = name
+    name
         .split(|c: char| pascal_spaces_list.contains(&c))
         .filter(|s| !s.is_empty())
         .map(|word| {
@@ -51,9 +57,7 @@ pub fn to_pascal_case(name: &str) -> Ident {
                 }
             }
         })
-        .collect::<String>();
-
-    format_ident!("{}", pascal)
+        .collect()
 }
 
 /// Converts a name to snake_case for field names.
@@ -101,14 +105,14 @@ pub fn module_name(category_id: u8) -> Ident {
     format_ident!("cat{category_id:03}")
 }
 
-/// An item's struct: `Item010`.
-pub fn item_struct_name(id: u16) -> Ident {
-    format_ident!("Item{id:03}")
+/// An item's struct: `Item010`, `ItemSp`.
+pub fn item_struct_name(id: &str) -> Ident {
+    format_ident!("Item{}", pascal_case(id))
 }
 
-/// An item's field in the record: `item010`.
-pub fn item_field_name(id: u16) -> Ident {
-    format_ident!("item{id:03}")
+/// An item's field in the record: `item010`, `itemsp`.
+pub fn item_field_name(id: &str) -> Ident {
+    format_ident!("item{}", id.to_lowercase())
 }
 
 /// One part of an extended item: `Item010Part0`.
@@ -274,9 +278,11 @@ mod tests {
 
     #[test]
     fn generated_names() {
-        let item = item_struct_name(10);
+        let item = item_struct_name("010");
         assert_eq!(item, format_ident!("Item010"));
-        assert_eq!(item_field_name(10), format_ident!("item010"));
+        assert_eq!(item_field_name("010"), format_ident!("item010"));
+        assert_eq!(item_struct_name("SP"), format_ident!("ItemSp"));
+        assert_eq!(item_field_name("SP"), format_ident!("itemsp"));
         assert_eq!(module_name(48), format_ident!("cat048"));
         assert_eq!(part_struct_name(&item, 1), format_ident!("Item010Part1"));
         assert_eq!(element_struct_name(&item), format_ident!("Item010Element"));

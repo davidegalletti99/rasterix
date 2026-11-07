@@ -3,13 +3,13 @@
      FX-terminated repetitive, compound FSPEC hole, ASCII string field,
      signed field, opaque explicit. -->
 <category id="099">
-    <item id="010" frn="1">
+    <item id="010">
         <repetitive bytes="1" counter="fx">
             <field name="mode" bits="2"/>
             <field name="value" bits="5"/>
         </repetitive>
     </item>
-    <item id="020" frn="2">
+    <item id="020">
         <compound>
             <fixed bytes="1">
                 <field name="alpha" bits="8"/>
@@ -20,18 +20,25 @@
             </fixed>
         </compound>
     </item>
-    <item id="030" frn="3">
+    <item id="030">
         <fixed bytes="4">
             <field name="designator" bits="32" type="ascii"/>
         </fixed>
     </item>
-    <item id="040" frn="4">
+    <item id="040">
         <fixed bytes="3">
             <field name="dx" bits="12" type="signed"/>
             <field name="dy" bits="12" type="signed"/>
         </fixed>
     </item>
-    <item id="050" frn="5">
+    <item id="050">
         <explicit/>
     </item>
+    <uap>
+        <entry item="010"/>
+        <entry item="020"/>
+        <entry item="030"/>
+        <entry item="040"/>
+        <entry item="050"/>
+    </uap>
 </category>

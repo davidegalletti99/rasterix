@@ -15,17 +15,24 @@ use crate::transform::ir::*;
 /// - [`CodegenError::BitCountMismatch`] — element bits do not sum to the declared byte size
 /// - [`CodegenError::ExtendedByteMismatch`] — declared byte count differs from the number of part groups
 /// - [`CodegenError::PartGroupBitMismatch`] — a part group's elements do not sum to 7 data bits
+/// - [`CodegenError::UnknownUapItem`], [`CodegenError::DuplicateUapItem`],
+///   [`CodegenError::ItemNotInUap`] — the UAP and the items disagree
 pub fn to_ir(cat: Category) -> Result<IR, CodegenError> {
     let items = cat.items.into_iter()
         .map(to_ir_item)
         .collect::<Result<Vec<_>, _>>()?;
-    IR::new(cat.id, items)
+    let uap = cat.uap.slots.into_iter()
+        .map(|slot| match slot {
+            UapEntry::Entry { item } => UapSlot::Item(item),
+            UapEntry::Spare(_) => UapSlot::Spare,
+        })
+        .collect();
+    IR::new(cat.id, items, uap)
 }
 
 fn to_ir_item(item: Item) -> Result<IRItem, CodegenError> {
     Ok(IRItem {
         id: item.id,
-        frn: item.frn,
         layout: to_ir_item_structure(item.data)?,
     })
 }

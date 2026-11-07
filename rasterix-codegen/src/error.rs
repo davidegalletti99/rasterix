@@ -90,6 +90,18 @@ pub enum CodegenError {
         actual: usize,
     },
 
+    /// A UAP entry names an item that is not defined.
+    #[error("UAP entry '{item}' names no defined item")]
+    UnknownUapItem { item: String },
+
+    /// The UAP lists the same item in more than one slot.
+    #[error("UAP lists item '{item}' more than once")]
+    DuplicateUapItem { item: String },
+
+    /// An item is defined but has no slot in the UAP, so it has no FRN.
+    #[error("Item '{item}' is not listed in the UAP")]
+    ItemNotInUap { item: String },
+
     // ── Path ──────────────────────────────────────────────────────────────
     /// A file path contains non-UTF-8 bytes and cannot be used.
     #[error("File path is not valid UTF-8")]

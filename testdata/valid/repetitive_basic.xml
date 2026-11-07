@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "../../rasterix.dtd">
 <category id="1">
-    <item id="70" frn="1">
+    <item id="070">
         <repetitive bytes="2" counter="5">
             <field name="azimuth" bits="16"/>
         </repetitive>
     </item>
+    <uap>
+        <entry item="070"/>
+    </uap>
 </category>

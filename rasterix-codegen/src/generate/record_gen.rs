@@ -5,7 +5,8 @@ use crate::transform::ir::IRCategory;
 use super::utils::{frn_to_fspec_position, item_field_name, item_struct_name, record_struct_name};
 
 /// One item's place in the record: its field, its type, and the FSPEC bit that
-/// says whether it is present.
+/// says whether it is present. Entries come in FRN order, which is also the
+/// order items appear on the wire.
 struct Entry {
     field_name: proc_macro2::Ident,
     type_name: proc_macro2::Ident,
@@ -15,13 +16,12 @@ struct Entry {
 
 fn entries(category: &IRCategory) -> Vec<Entry> {
     category
-        .items
-        .iter()
-        .map(|item| {
-            let (fspec_byte, fspec_bit) = frn_to_fspec_position(item.frn as usize);
+        .items_by_frn()
+        .map(|(frn, item)| {
+            let (fspec_byte, fspec_bit) = frn_to_fspec_position(frn);
             Entry {
-                field_name: item_field_name(item.id),
-                type_name: item_struct_name(item.id),
+                field_name: item_field_name(&item.id),
+                type_name: item_struct_name(&item.id),
                 fspec_byte,
                 fspec_bit,
             }
@@ -121,13 +121,12 @@ pub fn generate_record(category: &IRCategory) -> TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::transform::ir::{FieldKind, IRElement, IRItem, IRLayout};
+    use crate::transform::ir::{FieldKind, IRElement, IRItem, IRLayout, UapSlot};
     use test_utils::assert_code_contains;
 
-    fn item(id: u16, frn: u8) -> IRItem {
+    fn item(id: &str) -> IRItem {
         IRItem {
-            id,
-            frn,
+            id: id.into(),
             layout: IRLayout::Fixed {
                 bytes: 1,
                 elements: vec![IRElement::Field { name: "code".into(), bits: 8, kind: FieldKind::Unsigned }],
@@ -137,27 +136,53 @@ mod tests {
 
     #[test]
     fn test_generate_record() {
-        let category = IRCategory { id: 48, items: vec![item(10, 1), item(20, 2)] };
+        let category = IRCategory {
+            id: 48,
+            items: vec![item("010"), item("SP")],
+            uap: vec![slot("010"), slot("SP")],
+        };
 
         let code = generate_record(&category).to_string();
         assert_code_contains(&code, &[
             "pub struct Record",
             "pub item010 : Option < Item010 >",
-            "pub item020 : Option < Item020 >",
+            "pub itemsp : Option < ItemSp >",
             "impl Decode for Record",
             "impl Encode for Record",
         ]);
     }
 
+    fn slot(id: &str) -> UapSlot {
+        UapSlot::Item(id.into())
+    }
+
     #[test]
-    fn fspec_position_comes_from_the_frn() {
-        // FRN 8 is the first bit of the second FSPEC byte.
-        let category = IRCategory { id: 62, items: vec![item(10, 1), item(290, 8)] };
+    fn fspec_position_comes_from_the_uap_position() {
+        // Six spares push I062/290 to FRN 8, the first bit of the second FSPEC byte.
+        let mut uap = vec![slot("010")];
+        uap.extend(std::iter::repeat_n(UapSlot::Spare, 6));
+        uap.push(slot("290"));
+        let category = IRCategory { id: 62, items: vec![item("010"), item("290")], uap };
 
         let code = generate_record(&category).to_string();
         assert_code_contains(&code, &[
             "fspec . is_set (0usize , 0u8)",
             "fspec . is_set (1usize , 0u8)",
         ]);
+    }
+
+    #[test]
+    fn items_go_on_the_wire_in_uap_order() {
+        // Defined 020 first, but the UAP puts 010 first.
+        let category = IRCategory {
+            id: 48,
+            items: vec![item("020"), item("010")],
+            uap: vec![slot("010"), slot("020")],
+        };
+
+        let code = generate_record(&category).to_string();
+        let first = code.find("self . item010 { item . encode").unwrap();
+        let second = code.find("self . item020 { item . encode").unwrap();
+        assert!(first < second, "{code}");
     }
 }

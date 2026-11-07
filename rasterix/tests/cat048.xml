@@ -9,7 +9,7 @@
 <category id="048">
 
     <!-- I048/010: Data Source Identifier -->
-    <item id="010" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
@@ -17,14 +17,14 @@
     </item>
 
     <!-- I048/140: Time of Day -->
-    <item id="140" frn="2">
+    <item id="140">
         <fixed bytes="3">
             <field name="time_of_day" bits="24"/>
         </fixed>
     </item>
 
     <!-- I048/020: Target Report Descriptor -->
-    <item id="020" frn="3">
+    <item id="020">
         <extended bytes="1">
             <part index="0">
                 <enum name="typ" bits="3">
@@ -59,7 +59,7 @@
     </item>
 
     <!-- I048/040: Measured Position in Polar Coordinates -->
-    <item id="040" frn="4">
+    <item id="040">
         <fixed bytes="4">
             <field name="rho" bits="16"/>
             <field name="theta" bits="16"/>
@@ -67,7 +67,7 @@
     </item>
 
     <!-- I048/070: Mode-3/A Code in Octal Representation -->
-    <item id="070" frn="5">
+    <item id="070">
         <fixed bytes="2">
             <field name="v" bits="1"/>
             <field name="g" bits="1"/>
@@ -78,7 +78,7 @@
     </item>
 
     <!-- I048/090: Flight Level in Binary Representation -->
-    <item id="090" frn="6">
+    <item id="090">
         <fixed bytes="2">
             <field name="v" bits="1"/>
             <field name="g" bits="1"/>
@@ -88,7 +88,7 @@
     </item>
 
     <!-- I048/130: Radar Plot Characteristics -->
-    <item id="130" frn="7">
+    <item id="130">
         <compound>
             <!-- SRL: SSR Plot Runlength -->
             <fixed bytes="1">
@@ -128,21 +128,21 @@
     </item>
 
     <!-- I048/220: Aircraft Address -->
-    <item id="220" frn="8">
+    <item id="220">
         <fixed bytes="3">
             <field name="aircraft_address" bits="24"/>
         </fixed>
     </item>
 
     <!-- I048/240: Aircraft Identification -->
-    <item id="240" frn="9">
+    <item id="240">
         <fixed bytes="6">
             <field name="aircraft_id" bits="48" type="string"/>
         </fixed>
     </item>
 
     <!-- I048/250: Mode S MB Data -->
-    <item id="250" frn="10">
+    <item id="250">
         <repetitive bytes="8" counter="1">
             <field name="mb_data" bits="56"/>
             <field name="bds1" bits="4"/>
@@ -151,7 +151,7 @@
     </item>
 
     <!-- I048/161: Track Number -->
-    <item id="161" frn="11">
+    <item id="161">
         <fixed bytes="2">
             <spare bits="4"/>
             <field name="track_number" bits="12"/>
@@ -159,7 +159,7 @@
     </item>
 
     <!-- I048/042: Calculated Position in Cartesian Coordinates -->
-    <item id="042" frn="12">
+    <item id="042">
         <fixed bytes="4">
             <field name="x" bits="16"/>
             <field name="y" bits="16"/>
@@ -167,7 +167,7 @@
     </item>
 
     <!-- I048/200: Calculated Track Velocity in Polar Coordinates -->
-    <item id="200" frn="13">
+    <item id="200">
         <fixed bytes="4">
             <field name="ground_speed" bits="16"/>
             <field name="heading" bits="16"/>
@@ -175,7 +175,7 @@
     </item>
 
     <!-- I048/170: Track Status -->
-    <item id="170" frn="14">
+    <item id="170">
         <extended bytes="1">
             <part index="0">
                 <field name="cnf" bits="1"/>
@@ -205,7 +205,7 @@
     </item>
 
     <!-- I048/210: Track Quality -->
-    <item id="210" frn="15">
+    <item id="210">
         <fixed bytes="4">
             <field name="sigma_x" bits="8"/>
             <field name="sigma_y" bits="8"/>
@@ -215,7 +215,7 @@
     </item>
 
     <!-- I048/030: Warning/Error Conditions -->
-    <item id="030" frn="16">
+    <item id="030">
         <extended bytes="1">
             <part index="0">
                 <enum name="code" bits="7">
@@ -243,7 +243,7 @@
     </item>
 
     <!-- I048/080: Mode-3/A Code Confidence Indicator -->
-    <item id="080" frn="17">
+    <item id="080">
         <fixed bytes="2">
             <spare bits="4"/>
             <field name="qc4" bits="1"/>
@@ -262,7 +262,7 @@
     </item>
 
     <!-- I048/100: Mode-C Code and Code Confidence Indicator -->
-    <item id="100" frn="18">
+    <item id="100">
         <fixed bytes="4">
             <field name="v" bits="1"/>
             <field name="g" bits="1"/>
@@ -274,7 +274,7 @@
     </item>
 
     <!-- I048/110: Height Measured by 3D Radar -->
-    <item id="110" frn="19">
+    <item id="110">
         <fixed bytes="2">
             <spare bits="2"/>
             <field name="height_3d" bits="14"/>
@@ -282,7 +282,7 @@
     </item>
 
     <!-- I048/120: Radial Doppler Speed -->
-    <item id="120" frn="20">
+    <item id="120">
         <compound>
             <!-- CAL: Calculated Doppler Speed -->
             <fixed bytes="2">
@@ -301,7 +301,7 @@
     </item>
 
     <!-- I048/230: Communications/ACAS Capability and Flight Status -->
-    <item id="230" frn="21">
+    <item id="230">
         <fixed bytes="2">
             <enum name="com" bits="3">
                 <value name="NO_COMM" value="0"/>
@@ -331,14 +331,14 @@
     </item>
 
     <!-- I048/260: ACAS Resolution Advisory Report -->
-    <item id="260" frn="22">
+    <item id="260">
         <fixed bytes="7">
             <field name="mb_data" bits="56"/>
         </fixed>
     </item>
 
     <!-- I048/055: Mode-1 Code in Octal Representation -->
-    <item id="055" frn="23">
+    <item id="055">
         <fixed bytes="1">
             <field name="v" bits="1"/>
             <field name="g" bits="1"/>
@@ -348,7 +348,7 @@
     </item>
 
     <!-- I048/050: Mode-2 Code in Octal Representation -->
-    <item id="050" frn="24">
+    <item id="050">
         <fixed bytes="2">
             <field name="v" bits="1"/>
             <field name="g" bits="1"/>
@@ -359,7 +359,7 @@
     </item>
 
     <!-- I048/065: Mode-1 Code Confidence Indicator -->
-    <item id="065" frn="25">
+    <item id="065">
         <fixed bytes="1">
             <spare bits="3"/>
             <field name="qc1" bits="5"/>
@@ -367,7 +367,7 @@
     </item>
 
     <!-- I048/060: Mode-2 Code Confidence Indicator -->
-    <item id="060" frn="26">
+    <item id="060">
         <fixed bytes="2">
             <spare bits="4"/>
             <field name="qc2_4" bits="1"/>
@@ -386,17 +386,47 @@
     </item>
 
     <!-- I048/SP: Special Purpose Field -->
-    <item id="SP" frn="27">
+    <item id="SP">
         <explicit bytes="1">
             <field name="sp_data" bits="8"/>
         </explicit>
     </item>
 
     <!-- I048/RE: Reserved Expansion Field -->
-    <item id="RE" frn="28">
+    <item id="RE">
         <explicit bytes="1">
             <field name="re_data" bits="8"/>
         </explicit>
     </item>
 
+    <uap>
+        <entry item="010"/>
+        <entry item="140"/>
+        <entry item="020"/>
+        <entry item="040"/>
+        <entry item="070"/>
+        <entry item="090"/>
+        <entry item="130"/>
+        <entry item="220"/>
+        <entry item="240"/>
+        <entry item="250"/>
+        <entry item="161"/>
+        <entry item="042"/>
+        <entry item="200"/>
+        <entry item="170"/>
+        <entry item="210"/>
+        <entry item="030"/>
+        <entry item="080"/>
+        <entry item="100"/>
+        <entry item="110"/>
+        <entry item="120"/>
+        <entry item="230"/>
+        <entry item="260"/>
+        <entry item="055"/>
+        <entry item="050"/>
+        <entry item="065"/>
+        <entry item="060"/>
+        <entry item="SP"/>
+        <entry item="RE"/>
+    </uap>
 </category>

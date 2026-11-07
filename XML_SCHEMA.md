@@ -12,10 +12,14 @@ Rasterix uses XML files to describe ASTERIX (All-purpose STructured Eurocontrol 
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE category SYSTEM "rasterix.dtd">
 <category id="048">
-    <item id="010" frn="1">
+    <item id="010">
         <!-- Data structure definition -->
     </item>
     <!-- More items... -->
+    <uap>
+        <entry item="010"/>
+        <!-- One entry per item, in FRN order -->
+    </uap>
 </category>
 ```
 
@@ -39,17 +43,41 @@ The root element representing an ASTERIX category.
 
 ### `<item>`
 
-A Data Item within the category. Each item has a unique identifier and a Field Reference Number (FRN) used in the FSPEC.
+A Data Item within the category, identified by a unique id. Its Field Reference Number (FRN) is not declared here: it comes from the item's position in the [`<uap>`](#uap).
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
 | `id` | Yes | Item identifier (e.g., "010", "020", "SP", "RE") |
-| `frn` | Yes | Field Reference Number for UAP ordering |
+
+The id names the generated code: `"010"` → `Item010` / `item010`, `"SP"` → `ItemSp` / `itemsp`.
 
 ```xml
-<item id="010" frn="1">
+<item id="010">
     <!-- One of: fixed, explicit, extended, repetitive, compound -->
 </item>
+```
+
+---
+
+### `<uap>`
+
+The User Application Profile: the record's FSPEC slots in order, after the last `<item>`. The Nth child is FRN N, so the UAP also fixes the order in which items appear on the wire, whatever order they are defined in. It mirrors the `uap` block of asterix-specs.
+
+| Child | Description |
+|-------|-------------|
+| `<entry item="..."/>` | The slot holds the item with this id |
+| `<spare/>` | An unassigned FRN (`-` in asterix-specs) |
+
+Every item must be listed exactly once, and every entry must name a defined item.
+
+```xml
+<uap>
+    <entry item="010"/>   <!-- FRN 1 -->
+    <entry item="140"/>   <!-- FRN 2 -->
+    <spare/>              <!-- FRN 3, unassigned -->
+    <entry item="020"/>   <!-- FRN 4 -->
+    <entry item="SP"/>    <!-- FRN 5 -->
+</uap>
 ```
 
 ---
@@ -66,7 +94,7 @@ Fixed-length data structure with a predetermined, constant length.
 
 **Example: Data Source Identifier (SAC/SIC)**
 ```xml
-<item id="010" frn="1">
+<item id="010">
     <fixed bytes="2">
         <field name="sac" bits="8"/>
         <field name="sic" bits="8"/>
@@ -76,7 +104,7 @@ Fixed-length data structure with a predetermined, constant length.
 
 **Example: Mode-3/A Code with spare bits**
 ```xml
-<item id="070" frn="5">
+<item id="070">
     <fixed bytes="2">
         <field name="v" bits="1"/>
         <field name="g" bits="1"/>
@@ -105,7 +133,7 @@ Contains one or more `<part>` elements, each with 7 data bits + 1 FX bit (for 1-
 
 **Example: Target Report Descriptor**
 ```xml
-<item id="020" frn="3">
+<item id="020">
     <extended bytes="1">
         <part index="0">
             <enum name="typ" bits="3">
@@ -151,7 +179,7 @@ With `counter="fx"` there is no counter prefix: each repetition ends with an FX 
 
 **Example: FX-terminated repetitions**
 ```xml
-<item id="050" frn="7">
+<item id="050">
     <repetitive bytes="2" counter="fx">
         <field name="v" bits="1"/>
         <field name="g" bits="1"/>
@@ -163,7 +191,7 @@ With `counter="fx"` there is no counter prefix: each repetition ends with an FX 
 
 **Example: Mode S MB Data**
 ```xml
-<item id="250" frn="10">
+<item id="250">
     <repetitive bytes="8" counter="8">
         <field name="mb_data" bits="56"/>
         <field name="bds1" bits="4"/>
@@ -185,14 +213,14 @@ Explicit-length data structure where the first byte contains the length indicato
 With `bytes` and elements, the payload has a fixed structure. With neither, the payload is opaque (asterix-specs' `explicit`, e.g. RE and SP fields): the item becomes `{ data: Vec<u8> }` and its length is read from the length byte at runtime (at most 254 payload bytes).
 
 ```xml
-<item id="RE" frn="28">
+<item id="RE">
     <explicit/>
 </item>
 ```
 
 **Example: Special Purpose Field**
 ```xml
-<item id="SP" frn="27">
+<item id="SP">
     <explicit bytes="1">
         <field name="sp_data" bits="8"/>
     </explicit>
@@ -209,7 +237,7 @@ Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repet
 
 **Example: Radar Plot Characteristics**
 ```xml
-<item id="130" frn="7">
+<item id="130">
     <compound>
         <!-- SF1: SSR Plot Runlength -->
         <fixed bytes="1">
@@ -229,7 +257,7 @@ Contains one or more data structures (`fixed`, `explicit`, `extended`, or `repet
 
 **Example: Compound with mixed types**
 ```xml
-<item id="120" frn="20">
+<item id="120">
     <compound>
         <!-- Calculated Doppler Speed -->
         <fixed bytes="2">
@@ -360,7 +388,7 @@ Here's a minimal but complete category definition showcasing various features:
 <category id="048">
 
     <!-- Fixed: Data Source Identifier -->
-    <item id="010" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
@@ -368,7 +396,7 @@ Here's a minimal but complete category definition showcasing various features:
     </item>
 
     <!-- Fixed with enum and spare bits -->
-    <item id="070" frn="2">
+    <item id="070">
         <fixed bytes="2">
             <enum name="validity" bits="1">
                 <value name="VALID" value="0"/>
@@ -381,7 +409,7 @@ Here's a minimal but complete category definition showcasing various features:
     </item>
 
     <!-- Extended: Variable length with FX bits -->
-    <item id="020" frn="3">
+    <item id="020">
         <extended bytes="1">
             <part index="0">
                 <enum name="type" bits="3">
@@ -401,7 +429,7 @@ Here's a minimal but complete category definition showcasing various features:
     </item>
 
     <!-- Repetitive: List of items -->
-    <item id="250" frn="4">
+    <item id="250">
         <repetitive bytes="8" counter="8">
             <field name="data" bits="56"/>
             <field name="id" bits="8"/>
@@ -409,7 +437,7 @@ Here's a minimal but complete category definition showcasing various features:
     </item>
 
     <!-- Compound: Multiple optional sub-items -->
-    <item id="130" frn="5">
+    <item id="130">
         <compound>
             <fixed bytes="1">
                 <field name="sub1" bits="8"/>
@@ -424,11 +452,21 @@ Here's a minimal but complete category definition showcasing various features:
     </item>
 
     <!-- Explicit: Length-prefixed data -->
-    <item id="SP" frn="6">
+    <item id="SP">
         <explicit bytes="1">
             <field name="special" bits="8"/>
         </explicit>
     </item>
+
+    <!-- UAP: FRN order of the items above -->
+    <uap>
+        <entry item="010"/>
+        <entry item="070"/>
+        <entry item="020"/>
+        <entry item="250"/>
+        <entry item="130"/>
+        <entry item="SP"/>
+    </uap>
 
 </category>
 ```
@@ -443,6 +481,7 @@ The DTD enforces the following rules:
 2. **Extended parts**: Each part must have bits totaling `(bytes × 8) - 1` to account for the FX bit
 3. **Unique field names**: Field names must be unique within their scope
 4. **Required attributes**: All required attributes must be present
+5. **UAP covers the items**: Every item appears in the `<uap>` exactly once, and every entry names a defined item
 5. **Valid nesting**: Elements must be nested according to the DTD structure
 
 ## Generated Rust Types

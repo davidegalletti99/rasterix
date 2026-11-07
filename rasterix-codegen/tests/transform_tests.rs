@@ -27,8 +27,8 @@ fn transform_simple_fixed_to_ir() {
 
     assert_eq!(ir.category.id, 1);
     assert_eq!(ir.category.items.len(), 1);
-    assert_eq!(ir.category.items[0].id, 10);
-    assert_eq!(ir.category.items[0].frn, 1);
+    assert_eq!(ir.category.items[0].id, "010");
+    assert_eq!(ir.category.uap, vec![UapSlot::Item("010".into())]);
 }
 
 #[test]
@@ -39,9 +39,9 @@ fn transform_preserves_item_order() {
     assert!(ir.category.items.len() >= 2);
 
     // Items should be in order by their position in XML
-    let ids: Vec<u16> = ir.category.items.iter().map(|i| i.id).collect();
-    assert_eq!(ids[0], 10);
-    assert_eq!(ids[1], 20);
+    let ids: Vec<&str> = ir.category.items.iter().map(|i| i.id.as_str()).collect();
+    assert_eq!(ids[0], "010");
+    assert_eq!(ids[1], "020");
 }
 
 // ============================================================================

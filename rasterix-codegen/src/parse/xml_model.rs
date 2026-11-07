@@ -14,22 +14,40 @@ pub struct Category {
 
     #[serde(rename = "item", default)]
     pub items: Vec<Item>,
+
+    /// The User Application Profile, placing the items in the record
+    pub uap: Uap,
+}
+
+/// The User Application Profile: the record's FSPEC slots in FRN order.
+#[derive(Debug, Deserialize)]
+pub struct Uap {
+    #[serde(rename = "$value", default)]
+    pub slots: Vec<UapEntry>,
+}
+
+/// One FSPEC slot of the UAP.
+#[derive(Debug, Deserialize)]
+pub enum UapEntry {
+    /// `<entry item="010"/>`: the slot holds the item with this id.
+    #[serde(rename = "entry")]
+    Entry {
+        #[serde(rename = "@item")]
+        item: String,
+    },
+
+    /// `<spare/>`: an unassigned FRN (asterix-specs' `-`).
+    #[serde(rename = "spare")]
+    Spare(CompoundSpare),
 }
 
 /// Represents a single data item within a category.
 #[derive(Debug, Deserialize)]
 pub struct Item {
-    /// Data Item identifier, e.g. 10 for I048/010. It names the generated
-    /// struct and never reaches the wire, so it is not limited to one byte —
-    /// real categories define items such as I062/290 and I062/390.
+    /// Data Item identifier, e.g. "010" for I048/010 or "SP". It names the
+    /// generated struct and the item's UAP entry, and never reaches the wire.
     #[serde(rename = "@id")]
-    pub id: u16,
-
-    /// Field Reference Number as defined by the ASTERIX standard (1-indexed).
-    /// Per EUROCONTROL-SPEC-0149: FRN 1 is the first item in the record FSPEC,
-    /// mapping to the MSB of the first FSPEC byte (0x80).
-    #[serde(rename = "@frn")]
-    pub frn: u8,
+    pub id: String,
 
     /// The structural definition of this item
     #[serde(rename = "$value")]

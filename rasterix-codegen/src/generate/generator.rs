@@ -26,7 +26,7 @@ pub fn generate(ir: &IR) -> TokenStream {
     let datablock = generate_datablock(category.id);
 
     let items: Vec<_> = category.items.iter()
-        .map(|item| generate_item(&item_struct_name(item.id), &item.layout))
+        .map(|item| generate_item(&item_struct_name(&item.id), &item.layout))
         .collect();
 
     quote! {
@@ -77,15 +77,14 @@ mod tests {
         ];
         let items = vec![
             IRItem {
-                id: 10,
-                frn: 1,
+                id: "010".into(),
                 layout: IRLayout::Fixed {
                     bytes: 2,
                     elements,
                 },
             },
         ];
-        let ir = IR::new(48, items).expect("the fixture is valid");
+        let ir = IR::new(48, items, vec![UapSlot::Item("010".into())]).expect("the fixture is valid");
 
         let code = generate(&ir).to_string();
 

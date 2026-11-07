@@ -8,13 +8,13 @@
     every emitted code path instead of only byte-aligned fixed items.
 -->
 <category id="62">
-    <item id="010" frn="1">
+    <item id="010">
         <fixed bytes="2">
             <field name="sac" bits="8"/>
             <field name="sic" bits="8"/>
         </fixed>
     </item>
-    <item id="015" frn="2">
+    <item id="015">
         <fixed bytes="1">
             <field name="service_id" bits="4"/>
             <enum name="quality" bits="3">
@@ -25,7 +25,7 @@
             <spare bits="1"/>
         </fixed>
     </item>
-    <item id="020" frn="3">
+    <item id="020">
         <extended bytes="3">
             <part index="0">
                 <field name="typ" bits="3"/>
@@ -40,12 +40,12 @@
             </part>
         </extended>
     </item>
-    <item id="040" frn="4">
+    <item id="040">
         <repetitive bytes="2" counter="8">
             <field name="track" bits="16"/>
         </repetitive>
     </item>
-    <item id="060" frn="5">
+    <item id="060">
         <compound>
             <fixed bytes="1">
                 <field name="mode3a" bits="8"/>
@@ -55,24 +55,24 @@
             </repetitive>
         </compound>
     </item>
-    <item id="080" frn="6">
+    <item id="080">
         <explicit bytes="4">
             <field name="altitude" bits="16"/>
             <field name="speed" bits="16"/>
         </explicit>
     </item>
-    <item id="100" frn="7">
+    <item id="100">
         <fixed bytes="4">
             <field name="pos_x" bits="12"/>
             <field name="pos_y" bits="20"/>
         </fixed>
     </item>
-    <item id="245" frn="8">
+    <item id="245">
         <fixed bytes="6">
             <field name="callsign" bits="48" type="string"/>
         </fixed>
     </item>
-    <item id="290" frn="9">
+    <item id="290">
         <fixed bytes="2">
             <epb>
                 <field name="age" bits="8"/>
@@ -80,4 +80,15 @@
             <field name="delay" bits="7"/>
         </fixed>
     </item>
+    <uap>
+        <entry item="010"/>
+        <entry item="015"/>
+        <entry item="020"/>
+        <entry item="040"/>
+        <entry item="060"/>
+        <entry item="080"/>
+        <entry item="100"/>
+        <entry item="245"/>
+        <entry item="290"/>
+    </uap>
 </category>
